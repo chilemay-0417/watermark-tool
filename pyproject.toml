@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "watermark-tool"
+version = "1.0.0"
+description = "Photo watermark layout tool for Finder quick actions and CLI use."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "Pillow>=10.0,<13.0",
+  "CairoSVG>=2.7,<3.0",
+  "pillow-heif>=1.0,<2.0",
+  "rawpy>=0.26,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.8,<1.0",
+]
+
+[project.scripts]
+watermark-tool = "watermark_tool.cli:run"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.data-files]
+"share/watermark-tool/assets" = [
+  "assets/*.jpg",
+  "assets/*.png",
+  "assets/*.svg",
+  "assets/*.json",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"layout.py" = ["E402", "F401", "F403"]
+"tests/test_layout.py" = ["E402"]

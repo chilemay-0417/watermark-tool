@@ -1,0 +1,22 @@
+# macOS metadata
+.DS_Store
+
+# Python bytecode, tool caches, and generated package metadata
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Generated sample exports; retain the four README previews
+/samples/*_watermark.jpg
+/samples/*_watermark_[0-9]*.jpg
+!/samples/phone1_video_watermark.jpg
+!/samples/vertical2_vertical1_video_watermark.jpg
+!/samples/horizontal1_adaptive_watermark.jpg
+!/samples/vertical2_adaptive_watermark.jpg
+/output.png

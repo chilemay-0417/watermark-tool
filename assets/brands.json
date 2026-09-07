@@ -1,0 +1,294 @@
+{
+  "brands": [
+    {
+      "display_name": "Nikon",
+      "logo": "Nikon.png",
+      "keywords": [
+        "nikon",
+        "nikkor",
+        "z 5",
+        "z 6",
+        "z 7",
+        "z 8",
+        "z 9",
+        "z5",
+        "z6",
+        "z7",
+        "z8",
+        "z9",
+        "d3",
+        "d4",
+        "d5",
+        "d6",
+        "d7",
+        "d8",
+        "d9"
+      ]
+    },
+    {
+      "display_name": "Apple",
+      "logo": "Apple.png",
+      "keywords": [
+        "apple",
+        "iphone",
+        "ipad"
+      ]
+    },
+    {
+      "display_name": "Sony",
+      "logo": "Sony.png",
+      "keywords": [
+        "sony",
+        "ilce",
+        "dsc-",
+        "zv-",
+        "nex-",
+        "slt-"
+      ]
+    },
+    {
+      "display_name": "Xiaomi",
+      "logo": "Xiaomi.png",
+      "keywords": [
+        "xiaomi",
+        "redmi",
+        "poco",
+        "mi ",
+        "mi-",
+        "m200",
+        "m201",
+        "m210",
+        "m211",
+        "m220",
+        "m221",
+        "m230",
+        "m231",
+        "m240",
+        "m241",
+        "2201",
+        "2202",
+        "2203",
+        "2204",
+        "2205",
+        "2206",
+        "2207",
+        "2208",
+        "2209",
+        "2301",
+        "2302",
+        "2303",
+        "2304",
+        "2305",
+        "2306",
+        "2307",
+        "2308",
+        "2309",
+        "2401",
+        "2402",
+        "2403",
+        "2404",
+        "2405",
+        "2406",
+        "2407",
+        "2408",
+        "2409"
+      ]
+    },
+    {
+      "display_name": "Panasonic Lumix",
+      "logo": "Lumix.png",
+      "keywords": [
+        "lumix",
+        "panasonic",
+        "dmc-",
+        "dc-"
+      ]
+    },
+    {
+      "display_name": "Canon",
+      "logo": "Canon.png",
+      "keywords": [
+        "canon",
+        "eos",
+        "powershot"
+      ]
+    },
+    {
+      "display_name": "Fujifilm",
+      "logo": "Fujifilm.png",
+      "keywords": [
+        "fujifilm",
+        "fuji",
+        "gfx",
+        "x-t",
+        "x-pro",
+        "x100",
+        "x-e",
+        "x-h",
+        "x-s"
+      ]
+    },
+    {
+      "display_name": "Ricoh",
+      "logo": "Ricoh.png",
+      "keywords": [
+        "ricoh",
+        "gr iii",
+        "gr ii",
+        "gr digital"
+      ]
+    },
+    {
+      "display_name": "Pentax",
+      "logo": "Pentax.png",
+      "keywords": [
+        "pentax",
+        "k-1",
+        "k-3",
+        "k-5",
+        "k-7",
+        "kp "
+      ]
+    },
+    {
+      "display_name": "Leica",
+      "logo": "Leica.png",
+      "keywords": [
+        "leica",
+        "summicron",
+        "summilux",
+        "q2",
+        "q3",
+        "m10",
+        "m11"
+      ]
+    },
+    {
+      "display_name": "OM System",
+      "logo": "Olympus.png",
+      "keywords": [
+        "om digital",
+        "om system",
+        "olympus",
+        "e-m",
+        "e-p",
+        "om-1",
+        "om-5"
+      ]
+    },
+    {
+      "display_name": "DJI",
+      "logo": "DJI.png",
+      "keywords": [
+        "dji",
+        "hasselblad l2d",
+        "fc",
+        "mavic",
+        "osmo"
+      ]
+    },
+    {
+      "display_name": "Hasselblad",
+      "logo": "Hasselblad.png",
+      "keywords": [
+        "hasselblad",
+        "x1d",
+        "x2d",
+        "907x"
+      ]
+    },
+    {
+      "display_name": "Sigma",
+      "logo": "Sigma.png",
+      "keywords": [
+        "sigma",
+        "fp l",
+        "fp"
+      ]
+    },
+    {
+      "display_name": "GoPro",
+      "logo": "GoPro.png",
+      "keywords": [
+        "gopro",
+        "hero"
+      ]
+    },
+    {
+      "display_name": "Honor",
+      "logo": "Honor.png",
+      "keywords": [
+        "honor",
+        "magic",
+        "yal-",
+        "knt-",
+        "nth-",
+        "bvl-",
+        "rea-",
+        "crt-"
+      ]
+    },
+    {
+      "display_name": "Huawei",
+      "logo": "Huawei.png",
+      "keywords": [
+        "huawei",
+        "ana-",
+        "els-",
+        "tas-",
+        "vogue"
+      ]
+    },
+    {
+      "display_name": "Samsung",
+      "logo": "Samsung.png",
+      "keywords": [
+        "samsung",
+        "galaxy",
+        "sm-"
+      ]
+    },
+    {
+      "display_name": "Google Pixel",
+      "logo": "Google.png",
+      "keywords": [
+        "google",
+        "pixel"
+      ]
+    },
+    {
+      "display_name": "OnePlus",
+      "logo": "Oneplus.png",
+      "keywords": [
+        "oneplus",
+        "one plus"
+      ]
+    },
+    {
+      "display_name": "OPPO",
+      "logo": "OPPO.png",
+      "keywords": [
+        "oppo",
+        "find x",
+        "reno"
+      ]
+    },
+    {
+      "display_name": "vivo",
+      "logo": "Vivo.png",
+      "keywords": [
+        "vivo",
+        "v20",
+        "v21",
+        "v23",
+        "v25",
+        "v27",
+        "v29",
+        "x60",
+        "x70",
+        "x80",
+        "x90"
+      ]
+    }
+  ]
+}
