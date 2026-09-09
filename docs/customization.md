@@ -1,6 +1,6 @@
-# Customization
+# 签名与品牌定制
 
-这里记录不常改、但需要保留步骤的定制项。日常使用优先看项目根目录的 README。
+[返回 README](../README.md) · [使用指南](usage.md)
 
 ## 替换签名
 
@@ -18,10 +18,10 @@ assets/signature_400.jpg
 SIGNATURE_FILE = "signature_400.jpg"
 ```
 
-也可以在命令行临时关闭签名图片：
+也可以在命令行临时隐藏签名图片和替代文字：
 
 ```bash
-python3 layout.py photo.jpg --show-signature false
+python3 layout.py photo.jpg --show-signature false --signature-text ""
 ```
 
 关闭签名图片后，如果想用一行文字替代签名：
@@ -50,7 +50,7 @@ assets/brands.json
 
 ```text
 Apple / Canon / Fujifilm / Hasselblad / Honor / Leica / Lumix / Nikon /
-Olympus / OPPO / Ricoh / Sony / Vivo / Xiaomi
+Olympus / OnePlus / OPPO / Ricoh / Samsung / Sony / Vivo / Xiaomi
 ```
 
 `brands.json` 里已经预置了更多常见品牌的匹配规则；如果对应 logo 文件还不存在，

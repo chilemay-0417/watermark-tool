@@ -1,4 +1,4 @@
-"""从 samples 的指定成片生成 README 预览，保留完整成片不变。"""
+"""从 samples 的展示样张生成 README 预览，不修改样张。"""
 from pathlib import Path
 import sys
 
