@@ -6,6 +6,9 @@
 
 当前版本：**1.1.0**（版本 1.1）。[下载最新版本](https://github.com/chilemay-0417/watermark-tool/releases/latest) · [更新日志](CHANGELOG.md)
 
+本项目的 [samples 样张](samples/README.md) 已缩小尺寸并压缩，仅供展示排版效果，不用于比较原始画质。
+
+
 ## 两种输出模式
 
 ### video：为照片制作视频
@@ -48,7 +51,7 @@ video 支持 **1～3 张**照片。防重叠计算以水印和参数的横向占
 
 多张照片时，**照片间距 = 左留白 = 右留白 = 1.8 × 上留白**，取整到整数像素。例如上留白为 100px 时，横向间距均为 180px。实际可导出的尺寸受内存、图片格式和查看软件影响，超长图片的说明见下方限制部分。
 
-以上使用压缩预览，点击图片可查看 `samples/` 中的完整成片。两种模式都支持单张导出和多图合成，默认使用 `adaptive`。
+以上使用压缩预览，点击图片可查看 `samples/` 中的展示大图。两种模式都支持单张导出和多图合成，默认使用 `adaptive`。
 
 ## 1.1 更新
 
@@ -194,6 +197,6 @@ python3 -m unittest discover
 python3 -m ruff check .
 ```
 
-README 预览可用 `python3 scripts/build_readme_previews.py` 重新生成；完整成片保存在 `samples/`，压缩预览保存在 `docs/previews/`。
+README 预览可用 `python3 scripts/build_readme_previews.py` 重新生成；展示样张保存在 `samples/`，压缩预览保存在 `docs/previews/`。
 
 代码使用 [MIT License](LICENSE)。照片样张、个人签名和第三方品牌 Logo 的使用与分发需分别确认其授权。
