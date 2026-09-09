@@ -1,4 +1,3 @@
-import importlib.util
 import struct
 import tempfile
 import unittest
@@ -224,28 +223,6 @@ class ColorManagementTests(unittest.TestCase):
             self.assertGreaterEqual(counts.get((193, 95, 49), 0), 8000)
             self.assertGreaterEqual(counts.get((40, 100, 180), 0), 8000)
             self.assertGreaterEqual(counts.get((12, 34, 56), 0), 8000)
-
-    def test_preview_script_preserves_color_and_profile(self):
-        source = self.root / "samples"
-        source.mkdir()
-        name = "p3.jpg"
-        Image.new("RGB", (100, 80), (180, 100, 60)).save(source / name, icc_profile=p3_profile(),
-                                                               quality=100, subsampling=0)
-        spec = importlib.util.spec_from_file_location(
-            "preview", Path(__file__).resolve().parents[1] / "scripts/build_readme_previews.py",
-        )
-        script = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(script)
-        with (
-            patch.object(script, "ROOT", self.root),
-            patch.object(script, "PREVIEWS", ((name, 50),)),
-        ):
-            script.main()
-        with Image.open(self.root / "docs/previews" / name) as result:
-            self.assertEqual(result.size, (50, 40))
-            self.assertEqual(result.info["icc_profile"], SRGB_ICC)
-            np.testing.assert_allclose(result.getpixel((20, 20)), (193, 95, 49), atol=3)
-
 
 class HeifTests(unittest.TestCase):
     def test_real_heif_10_and_12bit_decode_nclx_and_rotation(self):

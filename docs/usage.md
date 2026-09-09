@@ -201,4 +201,4 @@ python3 -m unittest discover
 python3 -m ruff check .
 ```
 
-README 预览可用 `python3 scripts/build_readme_previews.py` 生成，展示样张位于 `samples/`，页面预览位于 `docs/previews/`。仓库样张已缩小尺寸并压缩，不用于评估原始画质；工具实际导出仍由所选参数决定。
+README 直接使用 `samples/` 中的展示样张。样张已缩小尺寸并压缩，不用于评估原始画质；工具实际导出仍由所选参数决定。
