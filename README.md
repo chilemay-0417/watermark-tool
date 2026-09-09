@@ -17,17 +17,17 @@
 
 **单张照片**
 
-<a href="samples/phone1_watermark.jpg"><img src="docs/previews/phone1_watermark.jpg" alt="video 模式：单张照片，左右留白相等" width="720"></a>
+<a href="samples/phone1_watermark.jpg"><img src="samples/phone1_watermark.jpg" alt="video 模式：单张照片，左右留白相等" width="720"></a>
 
 **两张竖向照片合成**
 
-<a href="samples/vertical1_vertical2_watermark.jpg"><img src="docs/previews/vertical1_vertical2_watermark.jpg" alt="video 模式：两张竖向照片，左右留白与图间距相等" width="720"></a>
+<a href="samples/vertical1_vertical2_watermark.jpg"><img src="samples/vertical1_vertical2_watermark.jpg" alt="video 模式：两张竖向照片，左右留白与图间距相等" width="720"></a>
 
 **多张照片：自动降低高度，给水印留出空间**
 
 当照片间距不足以容纳 Logo 和相邻照片的拍摄参数时，工具会自动降低所有照片的统一高度，并保持等间距。下图是三张照片的合成结果：
 
-<a href="samples/phone2_vertical1_vertical2_watermark.jpg"><img src="docs/previews/phone2_vertical1_vertical2_watermark.jpg" alt="video 模式：三张照片自动降低高度，避免 Logo 与相邻参数重叠" width="720"></a>
+<a href="samples/phone2_vertical1_vertical2_watermark.jpg"><img src="samples/phone2_vertical1_vertical2_watermark.jpg" alt="video 模式：三张照片自动降低高度，避免 Logo 与相邻参数重叠" width="720"></a>
 
 video 支持 **1～3 张**照片。防重叠计算以水印和参数的横向占用之和 `a` 为基准：原始间距小于 `a` 时，自动降低照片高度，直到间距至少达到 `1.5 × a`。横线和日期保留原有字号、长度和间距，不随照片缩小。
 
@@ -37,21 +37,21 @@ video 支持 **1～3 张**照片。防重叠计算以水印和参数的横向占
 
 **单张横向照片**
 
-<a href="samples/horizontal1_watermark.jpg"><img src="docs/previews/horizontal1_watermark.jpg" alt="adaptive 模式：单张横向照片，边框贴合照片" width="640"></a>
+<a href="samples/horizontal1_watermark.jpg"><img src="samples/horizontal1_watermark.jpg" alt="adaptive 模式：单张横向照片，边框贴合照片" width="640"></a>
 
 **单张竖向照片**
 
-<a href="samples/phone2_watermark.jpg"><img src="docs/previews/phone2_watermark.jpg" alt="adaptive 模式：单张竖向照片与紧凑边框" width="360"></a>
+<a href="samples/phone2_watermark.jpg"><img src="samples/phone2_watermark.jpg" alt="adaptive 模式：单张竖向照片与紧凑边框" width="360"></a>
 
 **多张照片自由拼接**
 
 程序不限制拼接张数或画布宽度，横向、竖向照片可以混合排列。下图将五张照片拼接成一张长图：
 
-<a href="samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg"><img src="docs/previews/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg" alt="adaptive 模式：五张不同设备、不同方向的照片拼接成长图" width="960"></a>
+<a href="samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg"><img src="samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg" alt="adaptive 模式：五张不同设备、不同方向的照片拼接成长图" width="960"></a>
 
 多张照片时，**照片间距 = 左留白 = 右留白 = 1.8 × 上留白**，取整到整数像素。例如上留白为 100px 时，横向间距均为 180px。实际可导出的尺寸受内存、图片格式和查看软件影响，超长图片的说明见下方限制部分。
 
-以上使用压缩预览，点击图片可查看 `samples/` 中的展示大图。两种模式都支持单张导出和多图合成，默认使用 `adaptive`。
+以上直接使用 `samples/` 中的压缩样张，点击可查看展示大图。两种模式都支持单张导出和多图合成，默认使用 `adaptive`。
 
 ## 1.1 更新
 
@@ -197,6 +197,6 @@ python3 -m unittest discover
 python3 -m ruff check .
 ```
 
-README 预览可用 `python3 scripts/build_readme_previews.py` 重新生成；展示样张保存在 `samples/`，压缩预览保存在 `docs/previews/`。
+README 直接使用 `samples/` 中的压缩展示样张。
 
 代码使用 [MIT License](LICENSE)。照片样张、个人签名和第三方品牌 Logo 的使用与分发需分别确认其授权。
