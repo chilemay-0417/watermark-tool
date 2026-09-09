@@ -4,7 +4,7 @@
 
 [下载最新版本](https://github.com/chilemay-0417/watermark-tool/releases/latest) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
 
-当前开发版本：**2.0.0（待发布）**。相较 1.1.0，新增原始尺寸布局、16 位 PNG、色彩管理及元数据保留；移除 RAW 和 TIFF 输入支持。升级前请查看 [升级说明](docs/usage.md#从-110-升级到-200)。上方下载链接指向已发布版本。
+当前发布版本：**2.0.0**。相较 1.1.0，新增原始尺寸布局、16 位 PNG、色彩管理及元数据保留；移除 RAW 和 TIFF 输入支持。升级前请查看 [升级说明](docs/usage.md#从-110-升级到-200)。
 
 ## 输出模式
 
