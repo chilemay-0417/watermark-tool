@@ -24,3 +24,7 @@ htmlcov/
 !/samples/phone2_watermark.jpg
 !/samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg
 /output.png
+
+# Local Python runtime and review exports
+.venv/
+/output/

@@ -4,7 +4,9 @@
 
 [下载最新版本](https://github.com/chilemay-0417/watermark-tool/releases/latest) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
 
-## 两种模式
+当前开发版本：**2.0.0（待发布）**。相较 1.1.0，新增原始尺寸布局、16 位 PNG、色彩管理及元数据保留；移除 RAW 和 TIFF 输入支持。升级前请查看 [升级说明](docs/usage.md#从-110-升级到-200)。上方下载链接指向已发布版本。
+
+## 输出模式
 
 ### video：为照片制作视频
 
@@ -38,7 +40,9 @@
 
 <a href="samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg"><img src="docs/previews/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg" alt="adaptive 模式：五张不同设备、不同方向的照片拼接成长图" width="960"></a>
 
-以上为压缩预览，点击图片可查看完整成片。默认模式为 `adaptive`。
+以上为压缩预览，点击图片可查看完整成片。默认模式为 `video`，以 JPEG 100% 质量、4:4:4 色度采样导出。
+
+另有 `--output-mode original` 保留各张照片的原始像素尺寸；搭配 `-o output.png` 使用无损导出。4K 缩放和 JPEG 重编码仍会损失部分细节，100% 质量不等于无损。
 
 ## 安装与使用
 
@@ -46,22 +50,26 @@
 
 ```bash
 cd /path/to/watermark_tool
-python3 -m pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
 为单张照片加水印：
 
 ```bash
-python3 layout.py samples/horizontal1.jpg --include-gps-location false
+python3 layout.py samples/horizontal1.jpg
 ```
 
 将多张照片合成一张图片，用 `--output-mode` 选择模式：
 
 ```bash
-python3 layout.py samples/vertical1.jpg samples/vertical2.jpg --output-mode video --include-gps-location false
+python3 layout.py samples/vertical1.jpg samples/vertical2.jpg --output-mode video
 ```
 
 默认在第一张照片的目录保存 `原文件名_watermark.jpg`，合成时会连接各照片文件名；重名时自动追加序号。可用 `-o output.png` 指定输出路径及格式。
+
+逐张批量导出可使用 `python3 layout.py --batch photo1.jpg photo2.jpg`。程序复用处理好的 Logo 和签名缓存，重复运行更快；测量结果与缓存设置见 [运行速度](docs/usage.md#运行速度)。
 
 **macOS 右键使用**：按 [Finder 配置步骤](docs/usage.md#在-finder-中右键使用) 添加「照片加水印」和「合成水印照片」两个快速操作，即可在 Finder 中选中照片后右键运行。
 
@@ -69,9 +77,10 @@ python3 layout.py samples/vertical1.jpg samples/vertical2.jpg --output-mode vide
 
 ## 使用须知
 
-- 焦距优先显示 **35mm 等效焦距**，缺失时显示实际焦距；照片没有拍摄日期时会使用处理时间。
-- 地点查询默认开启，会将照片中的 GPS 经纬度发送给 Nominatim 查询地名。以上命令用 `--include-gps-location false` 关闭查询；Finder 中可将配置项 `INCLUDE_GPS_LOCATION` 改为 `False`。
-- 支持 JPEG、PNG、TIFF、WebP，以及通过解码库读取 HEIC / HEIF 和 RAW。导出为 JPEG 或 PNG，不保留原始 EXIF；未进行 ICC 色彩管理。详细兼容性和排版限制见 [使用指南](docs/usage.md#使用限制与排错)。
+- 焦距优先显示 **35mm 等效焦距**，缺失时显示实际焦距；日期仅显示 EXIF 拍摄时间，精确到秒，不显示小数秒和时区；拍摄时间缺失或无效时不显示日期。
+- GPS 地点查询默认开启，有坐标时会发送经纬度给 Nominatim 查询地名。可用 `--include-gps-location false` 关闭；`--preserve-gps true` 单独控制单图成片中的 GPS 字段，元数据保留开关默认关闭。
+- 支持 JPEG、PNG、WebP 和 HEIC / HEIF；已移除 RAW 和 TIFF 支持。默认保留来源 RGB 色域，混合 SDR 色域使用 ProPhoto RGB。PNG 支持无损 16 位 SDR；不提供 HDR 处理或输出，检测到 HDR 图片会提示先转成 SDR。
+- 默认保留筛选后的拍摄参数、作者、版权和单图 DPI，重建尺寸及方向，移除旧缩略图、MakerNote、设备序列号；可用 `--metadata none` 删除非色彩元数据。详细策略见 [使用指南](docs/usage.md#色彩处理)。
 
 ## 许可
 

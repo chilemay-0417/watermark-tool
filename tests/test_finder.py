@@ -14,7 +14,7 @@ ZSH = shutil.which("zsh")
 
 @unittest.skipUnless(ZSH, "Finder 入口需要 zsh")
 class FinderEntrypointTests(unittest.TestCase):
-    def run_entrypoint(self, script, *, fail=False):
+    def run_entrypoint(self, script, *, fail=False, photo_count=1):
         with tempfile.TemporaryDirectory() as tmp_dir:
             base = Path(tmp_dir)
             fake_bin = base / "bin"
@@ -50,7 +50,8 @@ if name == "python":
                 "FAKE_FAIL": "1" if fail else "0",
             }
             result = subprocess.run(
-                [ZSH, str(PROJECT_ROOT / script), str(base / 'photo "quoted" 中文.jpg')],
+                [ZSH, str(PROJECT_ROOT / script),
+                 *[str(base / f'photo "quoted" 中文 {i}.jpg') for i in range(photo_count)]],
                 env=environment, capture_output=True, text=True, timeout=20,
             )
             calls = [json.loads(line) for line in events.read_text().splitlines()]
@@ -66,6 +67,15 @@ if name == "python":
                     self.assertEqual(len(ui_calls), 1)
                     self.assertIn("display dialog" if fail else "display notification",
                                   ui_calls[0]["source"])
+
+    def test_batch_uses_one_render_process_for_all_photos(self):
+        result, calls, _ = self.run_entrypoint("watermark_batch_each.sh", photo_count=3)
+        self.assertEqual(result.returncode, 0)
+        renders = [call for call in calls if call["name"] == "python"
+                   and call["args"] and call["args"][0].endswith("layout.py")]
+        self.assertEqual(len(renders), 1)
+        self.assertEqual(renders[0]["args"][1:3], ["--batch", "--"])
+        self.assertEqual(len(renders[0]["args"][3:]), 3)
 
     def test_quoted_unicode_filename_is_passed_as_data_to_applescript(self):
         result, calls, name = self.run_entrypoint("watermark_combine_selected.sh")

@@ -52,7 +52,7 @@ LOCATION_SUFFIX_PATTERN = re.compile(
 def clean_exif_value(value):
     """清理 EXIF 值，避免 bytes 等类型影响后续格式化。"""
     if isinstance(value, bytes):
-        return value.decode(errors="ignore")
+        return value.decode(errors="replace").strip("\x00 ")
 
     return value
 
@@ -173,17 +173,22 @@ def format_focal_length(value):
     return f"{format_number(v, 1)}mm"
 
 
-def format_photo_date(value):
+def format_photo_date(value, offset=None, subsecond=None):
+    """Display the camera's capture time to whole seconds, without timezone conversion."""
     value = clean_exif_value(value)
-
+    if not value:
+        return ""
     try:
-        if value:
-            dt_obj = datetime.strptime(str(value), "%Y:%m:%d %H:%M:%S")
-            return dt_obj.strftime("%a, %d %b %Y %H:%M:%S")
-    except Exception as exc:
-        warn(f"EXIF 日期格式异常：{value}，原因：{exc}。将使用当前时间。")
+        dt_obj = datetime.strptime(str(value).strip("\x00 "), "%Y:%m:%d %H:%M:%S")
+    except (TypeError, ValueError):
+        warn(f"EXIF 日期格式异常：{value}；忽略该日期。")
+        return ""
+    return dt_obj.strftime("%a, %d %b %Y %H:%M:%S")
 
-    return datetime.now().strftime("%a, %d %b %Y %H:%M:%S")
+
+def photo_date_from_exif(exif_data):
+    # Digitization/modification dates do not establish when the photo was taken.
+    return format_photo_date(exif_data.get(TAG_DATETIME_ORIGINAL))
 
 
 def format_camera_settings(exif_data):
@@ -389,6 +394,7 @@ def is_ascii_location(text):
 
 
 def fetch_reverse_geocode_data(lat, lon, language, timeout, zoom):
+    deadline = time.monotonic() + timeout
     params = urllib.parse.urlencode(
         {
             "format": "jsonv2",
@@ -407,6 +413,8 @@ def fetch_reverse_geocode_data(lat, lon, language, timeout, zoom):
     elapsed = now - LAST_LOCATION_LOOKUP_TIME
 
     if elapsed < 1:
+        if 1 - elapsed >= timeout:
+            raise TimeoutError("地点查询总时间预算已用完")
         time.sleep(1 - elapsed)
 
     request = urllib.request.Request(
@@ -418,7 +426,10 @@ def fetch_reverse_geocode_data(lat, lon, language, timeout, zoom):
     )
 
     LAST_LOCATION_LOOKUP_TIME = time.monotonic()
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    remaining = deadline - LAST_LOCATION_LOOKUP_TIME
+    if remaining <= 0:
+        raise TimeoutError("地点查询总时间预算已用完")
+    with urllib.request.urlopen(request, timeout=remaining) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -428,12 +439,16 @@ def reverse_geocode_location(lat, lon, language, timeout):
     if cache_key in LOCATION_CACHE:
         return LOCATION_CACHE[cache_key]
 
+    location = ""
+    deadline = time.monotonic() + timeout
     try:
         zooms = (10, 16, 14, 12, 8) if should_prefer_ascii_location(language) else (10,)
-        location = ""
 
         for zoom in zooms:
-            data = fetch_reverse_geocode_data(lat, lon, language, timeout, zoom)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            data = fetch_reverse_geocode_data(lat, lon, language, remaining, zoom)
             candidate = format_location_from_address(
                 data.get("address"),
                 data.get("display_name"),
@@ -452,17 +467,15 @@ def reverse_geocode_location(lat, lon, language, timeout):
         if exc.code == 429:
             warn(
                 "GPS 地点反查被 Nominatim 限流（HTTP 429）。"
-                "本次将跳过地点文字；可稍后重试或使用 --include-gps-location false。"
+                "已停止继续查询，保留已查到的地点（如有）；可稍后重试。"
             )
         else:
             warn(
                 f"GPS 地点反查失败：{lat:.6f}, {lon:.6f}，"
                 f"HTTP {exc.code} {exc.reason}"
             )
-        location = ""
     except Exception as exc:
         warn(f"GPS 地点反查失败：{lat:.6f}, {lon:.6f}，原因：{exc}")
-        location = ""
 
     LOCATION_CACHE[cache_key] = location
     return location
@@ -483,8 +496,15 @@ def read_photo_metadata(
     include_gps_location=INCLUDE_GPS_LOCATION,
     gps_location_language=GPS_LOCATION_LANGUAGE,
     gps_location_timeout=GPS_LOCATION_TIMEOUT,
+    *, source=None,
 ):
-    exif_data = read_exif_all(image_path)
+    if source is None:
+        exif_data = read_exif_all(image_path)
+    else:
+        root, nested, gps, _, _ = source
+        exif_data = {**root, **nested}
+        if gps:
+            exif_data[TAG_GPS_INFO] = gps
     make = clean_exif_value(exif_data.get(TAG_MAKE, ""))
     model = clean_exif_value(exif_data.get(TAG_MODEL, ""))
     location = ""
@@ -497,7 +517,7 @@ def read_photo_metadata(
         )
 
     return PhotoMetadata(
-        date=format_photo_date(exif_data.get(TAG_DATETIME_ORIGINAL)),
+        date=photo_date_from_exif(exif_data),
         make=str(make).strip(),
         model=str(model).strip(),
         settings=format_camera_settings(exif_data),

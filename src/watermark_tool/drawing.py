@@ -1,9 +1,15 @@
 from pathlib import Path
+from functools import lru_cache
 import os
 import tempfile
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from .color import (
+    SRGB_ICC,
+    normalize_image,
+    open_heif_srgb,
+)
 from .utils import info, warn
 
 
@@ -126,57 +132,58 @@ def register_heif_opener():
     HEIF_OPENER_REGISTERED = True
 
 
-def open_raw_image(path, mode):
-    """使用 rawpy 读取常见相机 RAW 文件并转换为 Pillow 图片。"""
-    try:
-        import rawpy
-    except ImportError as exc:
-        raise RuntimeError(
-            "读取 RAW 图片需要安装 rawpy。"
-            '请运行 python3 -m pip install "rawpy>=0.26,<1.0"，'
-            "或先把 RAW 转换为 JPEG/TIFF。"
-        ) from exc
-
-    try:
-        with rawpy.imread(str(path)) as raw:
-            rgb = raw.postprocess(use_camera_wb=True, output_bps=8)
-    except Exception as exc:
-        raise RuntimeError(f"读取 RAW 图片失败：{path}，原因：{exc}") from exc
-
-    return Image.fromarray(rgb).convert(mode)
+def reject_tiff_input(path, image_format=None):
+    """Reject TIFF by filename or detected format, including renamed TIFF files."""
+    if Path(path).suffix.lower() in {".tif", ".tiff"} or image_format == "TIFF":
+        raise ValueError("不再支持 TIFF 输入；请先在编辑软件中导出 PNG 或 JPEG。")
 
 
-def open_image_correct_orientation(path, mode="RGB"):
-    """打开图片，并根据 EXIF Orientation 自动旋正。"""
+def open_image_correct_orientation(path, mode="RGB", background=(255, 255, 255)):
+    """打开并旋正图片，转换为 sRGB；透明照片与指定背景合成。"""
     path = Path(path)
     suffix = path.suffix.lower()
+    reject_tiff_input(path)
 
     if suffix in RAW_SUFFIXES:
-        return open_raw_image(path, mode)
+        raise ValueError("不再支持 RAW 输入；请先在编辑软件中导出 PNG 或 JPEG。")
 
     if suffix in HEIC_SUFFIXES:
         register_heif_opener()
+        return open_heif_srgb(path, mode, background)
 
+    with Image.open(path) as header:
+        reject_tiff_input(path, header.format)
+        use_native = header.format == "PNG" and header.mode not in ("CMYK", "LAB")
+    if use_native:
+        from .raster import read_raster, raster_to_srgb
+        return raster_to_srgb(read_raster(path), mode, background)
     with Image.open(path) as img:
         img = ImageOps.exif_transpose(img)
-        return img.convert(mode)
+        return normalize_image(img, mode, background)
 
 
 def get_oriented_image_size(path):
-    """常见格式只读图片头；RAW 用同一解码器测量后立即释放像素。"""
+    """只读取图片尺寸与方向；不接受 RAW 或 TIFF。"""
     path = Path(path)
+    reject_tiff_input(path)
     if path.suffix.lower() in RAW_SUFFIXES:
-        with open_image_correct_orientation(path) as img:
-            return img.size
+        raise ValueError("不再支持 RAW 输入；请先导出 PNG 或 JPEG。")
     if path.suffix.lower() in HEIC_SUFFIXES:
         register_heif_opener()
     with Image.open(path) as img:
+        reject_tiff_input(path, img.format)
         width, height = img.size
-        if img.getexif().get(274) in (5, 6, 7, 8):
+        if img.format == "PNG":
+            from .metadata import read_source_metadata
+            orientation = read_source_metadata(path, img)[0].get(274)
+        else:
+            orientation = img.getexif().get(274)
+        if orientation in (5, 6, 7, 8):
             return height, width
         return width, height
 
 
+@lru_cache(maxsize=64)
 def load_font(font_size, font_path=None, label="日期字体", prefer_cjk=False):
     """加载字体；地点文字可优先寻找支持中文/多语言的字体。"""
     if font_path:
@@ -466,18 +473,23 @@ def draw_rotated_camera_settings(
         canvas.paste(location_img, (int(location_x), int(location_y)), location_img)
 
 
-def save_best_quality_jpeg(img, output_path, quality=95):
-    img.save(
+def save_best_quality_jpeg(img, output_path, quality=100, *, metadata=None):
+    prepared = img if img.mode == "RGB" and img.info == {"icc_profile": SRGB_ICC} else (
+        normalize_image(img)
+    )
+    prepared.save(
         output_path,
         format="JPEG",
         quality=quality,
         subsampling=0,
         optimize=False,
         progressive=False,
+        icc_profile=SRGB_ICC,
+        **(metadata or {}),
     )
 
 
-def save_best_quality_image(img, output_path, jpeg_quality=95):
+def save_best_quality_image(img, output_path, jpeg_quality=100, *, metadata=None):
     """先完整编码到同目录临时文件，成功后原子替换，失败不破坏已有输出。"""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -488,9 +500,21 @@ def save_best_quality_image(img, output_path, jpeg_quality=95):
         temp_path = Path(temp_file.name)
     try:
         if output_path.suffix.lower() == ".png":
-            img.save(temp_path, format="PNG", compress_level=0)
+            prepared = img if img.mode == "RGB" and img.info == {"icc_profile": SRGB_ICC} else (
+                normalize_image(img)
+            )
+            from PIL.PngImagePlugin import PngInfo
+            options = dict(metadata or {})
+            xmp = options.pop("xmp", None)
+            if xmp:
+                chunks = PngInfo()
+                chunks.add_itxt("XML:com.adobe.xmp", xmp.decode("utf-8"))
+                options["pnginfo"] = chunks
+            prepared.save(temp_path, format="PNG", compress_level=6, icc_profile=SRGB_ICC,
+                          **options)
         else:
-            save_best_quality_jpeg(img, temp_path, quality=jpeg_quality)
+            save_best_quality_jpeg(img, temp_path, quality=jpeg_quality,
+                                   **({"metadata": metadata} if metadata is not None else {}))
         os.replace(temp_path, output_path)
     finally:
         temp_path.unlink(missing_ok=True)

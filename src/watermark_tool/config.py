@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ASSETS_DIR = PROJECT_ROOT / "assets"
 SAMPLES_DIR = PROJECT_ROOT / "samples"
 
-# 输出模式："video" 固定输出 3840 x 2160；"adaptive" 按照片内容调整宽度。
+# 输出模式：video 固定 4K；adaptive 固定高度、调整宽度；original 保留原尺寸。
 OUTPUT_MODE = "video"
 
 # video 模式下的固定输出尺寸。
@@ -103,7 +103,7 @@ SIGNATURE_FONT_SIZE = 50
 # assets/ 中的品牌 logo 匹配规则。
 BRAND_RULES_FILE = "brands.json"
 
-# JPEG 输出质量。95 通常已经接近肉眼无损，同时比 quality=100 小很多。
+# JPEG 默认最高质量；仍为有损编码，保真输出使用 PNG。
 JPEG_QUALITY = 100
 
 RGB = Tuple[int, int, int]
@@ -143,6 +143,9 @@ class LayoutConfig:
     signature_text: str = SIGNATURE_TEXT
     signature_font_path: Optional[str] = SIGNATURE_FONT_PATH
     signature_font_size: int = SIGNATURE_FONT_SIZE
+    color_mode: str = "preserve"
+    metadata_policy: str = "safe"
+    preserve_gps: bool = False
     jpeg_quality: int = JPEG_QUALITY
     date_font: Optional[Any] = None
     info_font: Optional[Any] = None
@@ -171,6 +174,7 @@ class PhotoItem:
     settings_image: Optional[Image.Image] = None
     location_image: Optional[Image.Image] = None
     source_size: Optional[Tuple[int, int]] = None
+    source_metadata: Optional[Any] = None
 
 
 @dataclass

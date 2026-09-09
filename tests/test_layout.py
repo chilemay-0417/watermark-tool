@@ -493,35 +493,9 @@ class LayoutFormattingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "signature_font_size"):
             validate_layout_params(1, cfg)
 
-    def test_raw_image_loader_uses_rawpy_for_raw_suffixes(self):
-        import numpy as np
-
-        class FakeRaw:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def postprocess(self, use_camera_wb=True, output_bps=8):
-                self.args = (use_camera_wb, output_bps)
-                return np.zeros((3, 4, 3), dtype=np.uint8)
-
-        class FakeRawpy:
-            @staticmethod
-            def imread(path):
-                return FakeRaw()
-
-        with (
-            tempfile.TemporaryDirectory() as tmp_dir,
-            patch.dict("sys.modules", {"rawpy": FakeRawpy}),
-        ):
-            raw_path = Path(tmp_dir) / "input.dng"
-            raw_path.write_bytes(b"fake")
-            image = open_image_correct_orientation(raw_path)
-
-        self.assertEqual(image.size, (4, 3))
-        self.assertEqual(image.mode, "RGB")
+    def test_raw_input_is_rejected_before_decoding(self):
+        with self.assertRaisesRegex(ValueError, "不再支持 RAW"):
+            open_image_correct_orientation("input.dng")
 
     def test_signature_text_replaces_signature_image_when_signature_is_hidden(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

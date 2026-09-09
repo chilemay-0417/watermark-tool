@@ -10,23 +10,12 @@ source "$SCRIPT_DIR/scripts/finder_common.zsh" || exit 1
 initialize_finder "$@" || exit 1
 create_error_log batch || exit 1
 
-FAILED=0
-SUCCESS=0
-for PHOTO in "$@"; do
-  echo "处理文件：$PHOTO" >> "$ERROR_LOG"
-  if "$PYTHON_BIN" "$PY_SCRIPT" "$PHOTO" >> "$ERROR_LOG" 2>&1; then
-    SUCCESS=$((SUCCESS + 1))
-  else
-    FAILED=$((FAILED + 1))
-  fi
-done
-
-if [[ $FAILED -eq 0 ]]; then
+if "$PYTHON_BIN" "$PY_SCRIPT" --batch -- "$@" >> "$ERROR_LOG" 2>&1; then
   rm -f "$ERROR_LOG"
-  show_notification "批量加水印完成" "成功处理 $SUCCESS 张照片"
+  show_notification "批量加水印完成" "成功处理 $# 张照片"
 else
   open "$ERROR_LOG"
-  show_dialog "部分照片处理失败：$FAILED 张。成功：$SUCCESS 张。错误日志已经打开。"
+  show_dialog "部分照片处理失败，其余照片已继续处理。成功和失败数量请查看已打开的错误日志。"
   exit 1
 fi
 

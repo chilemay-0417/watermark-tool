@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from .color import normalize_image, tag_srgb
+from .asset_cache import prepared_asset
 from .config import (
     ASSETS_DIR,
     BRAND_RULES_FILE,
@@ -43,7 +45,7 @@ from .exif_gps import read_photo_metadata
 from .utils import info, warn
 
 
-LOGO_FILE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".svg")
+LOGO_FILE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
 WORD_CHAR_PATTERN = re.compile(r"[a-z0-9]")
 
 
@@ -348,8 +350,13 @@ def validate_layout_params(photo_count, config):
     if config.output_mode == "video" and photo_count > 3:
         raise ValueError("video 模式最多支持 3 张照片；更多照片请使用 adaptive 模式。")
 
-    if config.output_mode not in {"video", "adaptive"}:
-        raise ValueError("output_mode 只支持 video 或 adaptive。")
+    if config.output_mode not in {"video", "adaptive", "original"}:
+        raise ValueError("output_mode 只支持 video、adaptive 或 original。")
+
+    if config.color_mode not in {"preserve", "srgb"}:
+        raise ValueError("color_mode 只支持 preserve 或 srgb。")
+    if config.metadata_policy not in {"safe", "none"}:
+        raise ValueError("metadata_policy 只支持 safe 或 none。")
 
     for name in ("date_tracking", "info_tracking", "location_tracking", "gps_location_timeout"):
         if not math.isfinite(getattr(config, name)):
@@ -431,29 +438,41 @@ def get_asset_base_dir():
     return ASSETS_DIR
 
 
-def load_photo_items(photo_paths, config, *, defer_pixels=False):
+def load_photo_items(photo_paths, config, *, defer_pixels=False, headers=None):
     """准备尺寸、元信息和文字，可延迟解码以免长图合成同时保留所有原图。"""
     items = []
 
-    for path in photo_paths:
+    from .metadata import read_source_metadata
+
+    for index, path in enumerate(photo_paths):
         path = Path(path)
 
         if not path.exists():
             raise FileNotFoundError(f"找不到照片文件：{path}")
 
+        # Reject unsupported images before any metadata network request.
+        image = None if defer_pixels else open_image_correct_orientation(
+            path, mode="RGB", background=config.background_color,
+        )
+        if headers is not None:
+            source_size = headers[index].size
+            source = headers[index].source_metadata
+        else:
+            source_size = get_oriented_image_size(path) if image is None else image.size
+            source = read_source_metadata(path)
         metadata = read_photo_metadata(
             path,
             include_gps_location=config.include_gps_location,
             gps_location_language=config.gps_location_language,
             gps_location_timeout=config.gps_location_timeout,
+            source=source,
         )
-        image = None if defer_pixels else open_image_correct_orientation(path, mode="RGB")
-        source_size = get_oriented_image_size(path) if image is None else image.size
         items.append(PhotoItem(
             path=path,
             image=image,
             source_size=source_size,
             metadata=metadata,
+            source_metadata=source,
             settings_image=make_rotated_text_image(
                 metadata.settings, config.info_font, config.info_color, config.info_tracking,
             ),
@@ -502,15 +521,20 @@ def open_logo_image(path):
         )
 
         with Image.open(BytesIO(png_bytes)) as img:
-            return img.convert("RGBA")
+            return normalize_image(img, mode="RGBA")
 
     return open_image_correct_orientation(path, mode="RGBA")
 
 
 def prepare_logo_image(path):
     """把任意原始尺寸的品牌 logo 统一缩放到固定高度并旋转。"""
-    logo = open_logo_image(path)
-    return resize_by_height(logo, LOGO_HEIGHT).rotate(90, expand=True)
+    def prepare():
+        with open_logo_image(path) as logo:
+            return resize_by_height(logo, LOGO_HEIGHT).rotate(90, expand=True)
+    if Path(path).suffix.lower() == ".svg":
+        # SVGs may refer to other files; their bytes alone cannot identify all dependencies.
+        return prepare()
+    return prepared_asset(path, LOGO_HEIGHT, "logo", prepare)
 
 
 def get_signature_font_path(config, signature_text):
@@ -532,8 +556,10 @@ def prepare_signature_mark(base_dir, config):
         if not signature_path.exists():
             raise FileNotFoundError(f"找不到签名文件：{signature_path}")
 
-        signature = open_image_correct_orientation(signature_path, mode="RGBA")
-        signature = resize_by_height(signature, LOGO_HEIGHT).rotate(90, expand=True)
+        def prepare():
+            with open_image_correct_orientation(signature_path, mode="RGBA") as image:
+                return resize_by_height(image, LOGO_HEIGHT).rotate(90, expand=True)
+        signature = prepared_asset(signature_path, LOGO_HEIGHT, "signature", prepare)
         info(f"使用签名：{signature_path.name}")
         return signature
 
@@ -664,6 +690,9 @@ def calculate_layout_metrics(items, config, watermark_assets):
     n = len(items)
     if not n:
         raise ValueError("没有可绘制的照片。")
+    if config.output_mode == "original":
+        from .preserved import original_metrics
+        return original_metrics(items, config, watermark_assets)
     sizes = [getattr(item, "source_size", None) or item.image.size for item in items]
 
     def widths_at_height(height):
@@ -750,14 +779,14 @@ def draw_photo_item(canvas, draw, item, idx, current_x, metrics, config):
         x=current_x,
         y=metrics.photo_top,
         w=photo_w,
-        h=metrics.photo_height,
+        h=item.image.height,
     )
 
     draw_rotated_camera_settings(
         canvas=canvas,
         photo_x=current_x,
         photo_y=metrics.photo_top,
-        photo_h=metrics.photo_height,
+        photo_h=item.image.height,
         settings_text=item.metadata.settings,
         location_text=item.metadata.location,
         font=config.info_font,
@@ -940,6 +969,8 @@ def print_export_summary(output_path, items, metrics, config):
         info(f"签名替代文字 signature_text：{config.signature_text or '无'}")
         info(f"签名替代文字字号 signature_font_size：{config.signature_font_size}")
     info(f"JPEG 质量 jpeg_quality：{config.jpeg_quality}")
+    if config.color_mode == "srgb":
+        info("输出色彩：sRGB / SDR / 8 位，已嵌入 ICC 色彩配置")
 
     for idx, item in enumerate(items, start=1):
         settings_text = item.metadata.settings or "未读取到"
@@ -981,6 +1012,9 @@ def make_canvas(photo_paths, output_path, config=None):
             output_path.exists() and path.exists() and output_path.samefile(path)
         ):
             raise ValueError("输出路径不能与任何输入照片相同，请另选文件名以保留原图。")
+    if config.color_mode == "preserve":
+        from .preserved import make_preserved_canvas
+        return make_preserved_canvas(photo_paths, output_path, config)
     prepare_fonts(config)
 
     base_dir = get_asset_base_dir()
@@ -1004,7 +1038,9 @@ def make_canvas(photo_paths, output_path, config=None):
             "请用 -o 指定 .png 输出；adaptive 本身不限制宽度。"
         )
 
-    canvas = Image.new("RGB", (metrics.canvas_w, metrics.canvas_h), config.background_color)
+    canvas = tag_srgb(Image.new(
+        "RGB", (metrics.canvas_w, metrics.canvas_h), config.background_color,
+    ))
     draw = ImageDraw.Draw(canvas)
     current_x = metrics.side_margin
     photo_placements = []
@@ -1013,9 +1049,12 @@ def make_canvas(photo_paths, output_path, config=None):
         info(f"video 自动降低照片高度：{config.photo_height} → {metrics.photo_height}px。")
 
     for idx, item in enumerate(items):
-        with open_image_correct_orientation(item.path, mode="RGB") as original:
+        with open_image_correct_orientation(
+            item.path, mode="RGB", background=config.background_color,
+        ) as original:
             item.image = original.resize(
-                (metrics.photo_widths[idx], metrics.photo_height), Image.Resampling.LANCZOS,
+                (original.size if config.output_mode == "original" else
+                 (metrics.photo_widths[idx], metrics.photo_height)), Image.Resampling.LANCZOS,
             )
         placement = draw_photo_item(
             canvas=canvas,
@@ -1039,5 +1078,12 @@ def make_canvas(photo_paths, output_path, config=None):
         config=config,
     )
 
-    save_best_quality_image(canvas, output_path, jpeg_quality=config.jpeg_quality)
+    from .metadata import collect_metadata
+    metadata = collect_metadata(
+        photo_paths, canvas.size, config.metadata_policy, config.preserve_gps,
+        sources=[item.source_metadata for item in items],
+    )
+    save_best_quality_image(
+        canvas, output_path, jpeg_quality=config.jpeg_quality, metadata=metadata,
+    )
     print_export_summary(output_path=output_path, items=items, metrics=metrics, config=config)

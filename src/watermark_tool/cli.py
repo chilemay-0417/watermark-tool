@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .config import LayoutConfig
 from .renderer import make_canvas
-from .utils import configure_logging, error
+from .utils import configure_logging, error, info
 
 
 def parse_bool(value):
@@ -77,12 +77,16 @@ def build_parser(defaults=None):
         help="输入照片路径。video 最多 3 张；adaptive 可合成任意多张。",
     )
     parser.add_argument(
+        "--batch", action="store_true",
+        help="逐张导出所有输入照片，在同一进程中复用水印和地点缓存；不能与 -o 同用。",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         default=None,
         help=(
             "输出文件名。不指定时，默认使用输入照片名加 _watermark，"
-            "多张照片会拼接文件名；使用 .png 可无损输出。"
+            "多张照片会拼接文件名；.png 支持无损和 16 位 SDR。"
         ),
     )
     parser.add_argument(
@@ -177,12 +181,25 @@ def build_parser(defaults=None):
     )
     parser.add_argument(
         "--output-mode",
-        choices=("video", "adaptive"),
+        choices=("video", "adaptive", "original"),
         default=defaults.output_mode,
         help=(
-            "输出模式。video 固定输出 3840x2160；adaptive 根据照片内容自动调整画布宽度。"
+            "输出模式。video 固定输出 3840x2160；adaptive 根据照片内容自动调整画布宽度；"
+            "original 保留原始像素尺寸。"
             f"当前默认 {defaults.output_mode}。"
         ),
+    )
+    parser.add_argument(
+        "--color-mode", choices=("preserve", "srgb"), default=defaults.color_mode,
+        help="preserve 保留来源色域，混合 SDR 色域使用 ProPhoto RGB；srgb 显式转换为 8 位 SDR。",
+    )
+    parser.add_argument(
+        "--metadata", choices=("safe", "none"), default=defaults.metadata_policy,
+        help="safe 保留筛选后的拍摄信息和版权（默认）；none 删除非色彩元数据。",
+    )
+    parser.add_argument(
+        "--preserve-gps", nargs="?", const=True, type=parse_bool, default=defaults.preserve_gps,
+        help="保留单图输出中的 GPS 元数据（默认关闭）；不控制地点联网查询。",
     )
     parser.add_argument(
         "--jpeg-quality",
@@ -293,6 +310,9 @@ def config_from_args(args):
         signature_text=args.signature_text,
         signature_font_path=args.signature_font,
         signature_font_size=args.signature_font_size,
+        color_mode=args.color_mode,
+        metadata_policy=args.metadata,
+        preserve_gps=args.preserve_gps,
         jpeg_quality=args.jpeg_quality,
     )
 
@@ -301,6 +321,22 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     configure_logging(quiet=args.quiet, verbose=args.verbose)
+    if args.batch:
+        if args.output:
+            parser.error("--batch 逐张生成输出文件名，不能与 -o 同用。")
+        config = config_from_args(args)
+        failed = 0
+        for photo in args.photos:
+            try:
+                make_canvas([photo], make_default_output_path([photo]), config=config)
+            except Exception as exc:
+                failed += 1
+                error(f"{photo}：{exc}")
+        summary = f"成功处理 {len(args.photos) - failed} 张照片，失败 {failed} 张。"
+        if failed:
+            raise RuntimeError(summary)
+        info(summary)
+        return
     output_path = args.output or make_default_output_path(args.photos)
     make_canvas(args.photos, output_path, config=config_from_args(args))
 

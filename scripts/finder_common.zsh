@@ -20,7 +20,7 @@ APPLESCRIPT
 find_python_bin() {
   local candidates=()
   [[ -n "$PYTHON_BIN" ]] && candidates+=("$PYTHON_BIN")
-  candidates+=("/opt/homebrew/bin/python3" "/usr/local/bin/python3" "python3" "/usr/bin/python3")
+  candidates+=("$SCRIPT_DIR/.venv/bin/python" "/opt/homebrew/bin/python3" "/usr/local/bin/python3" "python3" "/usr/bin/python3")
   local candidate resolved
   for candidate in "${candidates[@]}"; do
     resolved="$(command -v "$candidate")" || continue
@@ -29,13 +29,12 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path.cwd() / "src"))
-from watermark_tool.drawing import HEIC_SUFFIXES, RAW_SUFFIXES
+from watermark_tool.drawing import HEIC_SUFFIXES
+import pyspng
 
 suffixes = {Path(path).suffix.lower() for path in sys.argv[1:]}
 if suffixes & HEIC_SUFFIXES:
     import pillow_heif
-if suffixes & RAW_SUFFIXES:
-    import rawpy
 PY
     then
       PYTHON_BIN="$resolved"
