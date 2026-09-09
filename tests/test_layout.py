@@ -25,6 +25,7 @@ from watermark_tool.drawing import (
 from watermark_tool.exif_gps import (
     LOCATION_CACHE,
     format_aperture,
+    format_camera_settings,
     format_exposure_time,
     format_focal_length,
     format_gps_location,
@@ -193,6 +194,63 @@ class LayoutFormattingTests(unittest.TestCase):
         self.assertEqual(format_aperture((28, 10)), "f/2.8")
         self.assertEqual(format_iso([100]), "ISO100")
         self.assertEqual(format_focal_length((50, 1)), "50mm")
+
+    def test_shutter_preserves_fractional_seconds(self):
+        for value, expected in (
+            (0.8, "0.8s"), ((4, 5), "0.8s"), (0.6, "0.6s"),
+            (0.4, "0.4s"), (0.3, "0.3s"), ((5, 4), "1.25s"),
+            (1.6, "1.6s"), (2.5, "2.5s"), (30, "30s"),
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(format_exposure_time(value), expected)
+
+    def test_shutter_keeps_accurate_reciprocals_and_bounds_rounding_error(self):
+        for denominator in (2, 3, 4, 8, 15, 30, 125, 180, 400, 1000, 8000):
+            self.assertEqual(format_exposure_time((1, denominator)), f"1/{denominator}s")
+        for value in (0.001059, 0.00098, 0.009, 0.07, 0.13, 0.4, 0.6, 0.8, 1.25):
+            text = format_exposure_time(value).removesuffix("s")
+            rendered = 1 / int(text[2:]) if text.startswith("1/") else float(text)
+            self.assertLessEqual(abs(rendered - value) / value, 0.001)
+
+    def test_invalid_shutter_values_are_omitted(self):
+        for value in (None, "", "invalid", 0, -1, (1, 0), float("nan"), float("inf")):
+            with self.subTest(value=value):
+                self.assertEqual(format_exposure_time(value), "")
+
+    def test_camera_settings_prefers_35mm_equivalent_focal_length(self):
+        exif = {
+            exif_gps.TAG_FOCAL_LENGTH: 2.71484375,
+            exif_gps.TAG_FOCAL_LENGTH_35MM: 30,
+            exif_gps.TAG_F_NUMBER: 1.9,
+            exif_gps.TAG_EXPOSURE_TIME: (1, 180),
+            exif_gps.TAG_ISO: 20,
+        }
+        self.assertEqual(format_camera_settings(exif), "30mm f/1.9 1/180s ISO20")
+        exif[exif_gps.TAG_FOCAL_LENGTH] = 4.75
+        exif[exif_gps.TAG_FOCAL_LENGTH_35MM] = 26
+        self.assertTrue(format_camera_settings(exif).startswith("26mm "))
+
+    def test_missing_or_invalid_equivalent_focal_length_falls_back_to_actual_focal_length(self):
+        for value in (None, 0, "0", "", "unknown", -1, float("nan"), float("inf")):
+            with self.subTest(value=value):
+                exif = {
+                    exif_gps.TAG_FOCAL_LENGTH: 6.83,
+                    exif_gps.TAG_FOCAL_LENGTH_35MM: value,
+                    exif_gps.TAG_F_NUMBER: 1.85,
+                    exif_gps.TAG_ISO: 49,
+                }
+                self.assertEqual(format_camera_settings(exif), "6.8mm f/1.9 ISO49")
+        self.assertEqual(format_camera_settings({exif_gps.TAG_FOCAL_LENGTH: 6.83}), "6.8mm")
+
+    def test_camera_settings_omits_focal_length_when_both_values_are_invalid(self):
+        for value in (None, 0, -1, "invalid", float("nan"), float("inf")):
+            with self.subTest(value=value):
+                exif = {
+                    exif_gps.TAG_FOCAL_LENGTH_35MM: value,
+                    exif_gps.TAG_FOCAL_LENGTH: value,
+                    exif_gps.TAG_ISO: 49,
+                }
+                self.assertEqual(format_camera_settings(exif), "ISO49")
 
     def test_gps_coordinate_conversion(self):
         coord = gps_coord_to_decimal(((31, 1), (13, 1), (30, 1)), "N")
@@ -638,7 +696,7 @@ class LayoutCalculationTests(unittest.TestCase):
         self.assertEqual(metrics.photo_gap, 100)
         self.assertEqual(metrics.canvas_w, 2971)
 
-    def test_video_canvas_layout_reserves_right_mark_space(self):
+    def test_video_canvas_layout_uses_equal_margins_without_extra_right_reserve(self):
         cfg = LayoutConfig(
             photo_height=1850,
             line_bottom_margin=110,
@@ -659,7 +717,8 @@ class LayoutCalculationTests(unittest.TestCase):
         metrics = calculate_layout_metrics(items, cfg, assets)
 
         self.assertEqual(metrics.canvas_w, config.CANVAS_W)
-        self.assertEqual(metrics.photo_gap, round((config.CANVAS_W - 2400 - 75) / 3))
+        self.assertEqual(metrics.photo_gap, 480)
+        self.assertEqual(metrics.side_margin, 480)
 
     def test_invalid_jpeg_quality_is_rejected(self):
         cfg = LayoutConfig(jpeg_quality=101)

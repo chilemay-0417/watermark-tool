@@ -12,11 +12,15 @@ dist/
 .coverage
 htmlcov/
 
-# Generated sample exports; retain the four README previews
+# Generated sample exports
 /samples/*_watermark.jpg
 /samples/*_watermark_[0-9]*.jpg
-!/samples/phone1_video_watermark.jpg
-!/samples/vertical2_vertical1_video_watermark.jpg
-!/samples/horizontal1_adaptive_watermark.jpg
-!/samples/vertical2_adaptive_watermark.jpg
+
+# Six release showcase images
+!/samples/phone1_watermark.jpg
+!/samples/vertical1_vertical2_watermark.jpg
+!/samples/phone2_vertical1_vertical2_watermark.jpg
+!/samples/horizontal1_watermark.jpg
+!/samples/phone2_watermark.jpg
+!/samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg
 /output.png

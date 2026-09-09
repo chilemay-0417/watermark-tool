@@ -1,7 +1,9 @@
 import json
+import math
 import os
 import re
 import sys
+from dataclasses import replace
 from io import BytesIO
 from pathlib import Path
 
@@ -26,10 +28,12 @@ from .config import (
 from .drawing import (
     draw_rotated_camera_settings,
     draw_text_with_tracking,
-    get_text_size_with_tracking,
+    get_oriented_image_size,
+    get_text_bbox_with_tracking,
     load_font,
     load_signature_font,
     make_centered_text_mark_image,
+    make_rotated_text_image,
     open_image_correct_orientation,
     resize_by_height,
     save_best_quality_image,
@@ -211,12 +215,12 @@ def score_brand_rule_for_camera(rule, make, model):
     return best_score
 
 
-def find_brand_rule_by_camera(make, model, base_dir):
+def find_brand_rule_by_camera(make, model, base_dir, rules=None):
     """根据 EXIF 里的 Make / Model 选择最可信的品牌规则。"""
     best_rule = None
     best_score = 0
 
-    for rule in load_brand_rules(base_dir):
+    for rule in load_brand_rules(base_dir) if rules is None else rules:
         score = score_brand_rule_for_camera(rule, make, model)
 
         if score > best_score:
@@ -226,9 +230,9 @@ def find_brand_rule_by_camera(make, model, base_dir):
     return best_rule
 
 
-def find_logo_path_by_camera(make, model, base_dir):
+def find_logo_path_by_camera(make, model, base_dir, rules=None):
     """根据外部品牌规则选择 logo，不输出未知品牌警告。"""
-    rule = find_brand_rule_by_camera(make, model, base_dir)
+    rule = find_brand_rule_by_camera(make, model, base_dir, rules=rules)
 
     if rule is None:
         return None
@@ -236,9 +240,9 @@ def find_logo_path_by_camera(make, model, base_dir):
     return resolve_logo_path(base_dir, rule["logo"])
 
 
-def choose_logo_by_camera(make, model, base_dir, warn_unknown=True):
+def choose_logo_by_camera(make, model, base_dir, warn_unknown=True, rules=None):
     """根据 EXIF 里的相机品牌 Make 和型号 Model 选择 logo。"""
-    logo_path = find_logo_path_by_camera(make, model, base_dir)
+    logo_path = find_logo_path_by_camera(make, model, base_dir, rules=rules)
 
     if logo_path is not None:
         return logo_path
@@ -272,6 +276,10 @@ def select_logo_paths_for_items(items, base_dir):
     - 多张照片设备完全一致：只在最右侧照片右下侧放品牌 logo 和签名。
     - 多张照片设备不一致：每张可识别照片都放自己的品牌 logo，只有最右侧有签名。
     """
+    if not items:
+        return []
+
+    rules = load_brand_rules(base_dir)
     logo_paths = []
     camera_labels = []
     device_keys = []
@@ -281,7 +289,9 @@ def select_logo_paths_for_items(items, base_dir):
         metadata = item.metadata
         make = metadata.make or ""
         model = metadata.model or ""
-        logo_path = choose_logo_by_camera(make, model, base_dir, warn_unknown=False)
+        logo_path = choose_logo_by_camera(
+            make, model, base_dir, warn_unknown=False, rules=rules,
+        )
 
         camera_labels.append(f"{make or '未识别'} {model or ''}".strip())
         device_keys.append(normalize_camera_device_key(make, model))
@@ -291,9 +301,6 @@ def select_logo_paths_for_items(items, base_dir):
             unknown_logo_count += 1
 
     info(f"检测到相机：{'；'.join(camera_labels)}")
-
-    if not items:
-        return []
 
     rightmost_idx = len(items) - 1
     all_same_device = all(device_keys) and len(set(device_keys)) == 1
@@ -335,11 +342,20 @@ def select_logo_path_for_items(items, base_dir):
 
 def validate_layout_params(photo_count, config):
     """集中校验命令行排版参数，尽早给出清晰错误。"""
-    if not 1 <= photo_count <= 3:
-        raise ValueError("照片数量必须是 1 到 3 张。")
+    if photo_count < 1:
+        raise ValueError("至少需要 1 张照片。")
+
+    if config.output_mode == "video" and photo_count > 3:
+        raise ValueError("video 模式最多支持 3 张照片；更多照片请使用 adaptive 模式。")
 
     if config.output_mode not in {"video", "adaptive"}:
         raise ValueError("output_mode 只支持 video 或 adaptive。")
+
+    for name in ("date_tracking", "info_tracking", "location_tracking", "gps_location_timeout"):
+        if not math.isfinite(getattr(config, name)):
+            raise ValueError(f"{name} 必须是有限数值。")
+    if config.gps_location_timeout <= 0:
+        raise ValueError("gps_location_timeout 必须大于 0。")
 
     if config.photo_height <= 0 or config.photo_height >= CANVAS_H:
         raise ValueError("photo_height 必须大于 0 且小于画布高度。")
@@ -415,8 +431,8 @@ def get_asset_base_dir():
     return ASSETS_DIR
 
 
-def load_photo_items(photo_paths, config):
-    """读取、旋正并缩放照片，同时保留排版所需的元信息。"""
+def load_photo_items(photo_paths, config, *, defer_pixels=False):
+    """准备尺寸、元信息和文字，可延迟解码以免长图合成同时保留所有原图。"""
     items = []
 
     for path in photo_paths:
@@ -431,10 +447,21 @@ def load_photo_items(photo_paths, config):
             gps_location_language=config.gps_location_language,
             gps_location_timeout=config.gps_location_timeout,
         )
-        image = open_image_correct_orientation(path, mode="RGB")
-        image = resize_by_height(image, config.photo_height)
-
-        items.append(PhotoItem(path=path, image=image, metadata=metadata))
+        image = None if defer_pixels else open_image_correct_orientation(path, mode="RGB")
+        source_size = get_oriented_image_size(path) if image is None else image.size
+        items.append(PhotoItem(
+            path=path,
+            image=image,
+            source_size=source_size,
+            metadata=metadata,
+            settings_image=make_rotated_text_image(
+                metadata.settings, config.info_font, config.info_color, config.info_tracking,
+            ),
+            location_image=make_rotated_text_image(
+                metadata.location, config.location_font,
+                config.info_color, config.location_tracking,
+            ),
+        ))
 
     return items
 
@@ -580,19 +607,9 @@ def load_watermark_assets(base_dir, config, logo_path=None, logo_plan=None):
     elif not logo_cache:
         info("使用 logo：无")
 
-    mark_widths = [signature.size[0] if signature is not None else 0]
-
-    for mark in photo_marks:
-        if mark.logo is not None:
-            mark_widths.append(mark.logo.size[0])
-
-    max_width = max(mark_widths)
-    right_mark_width = get_mark_width(signature, photo_marks[-1]) if photo_marks else max_width
-    internal_mark_widths = [
-        get_mark_width(signature, mark)
-        for mark in photo_marks[:-1]
-    ]
-    max_internal_mark_width = max(internal_mark_widths, default=0)
+    mark_widths = [get_mark_width(signature, mark) for mark in photo_marks]
+    right_mark_width = mark_widths[-1] if mark_widths else 0
+    max_internal_mark_width = max(mark_widths[:-1], default=0)
     logo = photo_marks[-1].logo if photo_marks else None
     logo_name = photo_marks[-1].logo_name if photo_marks else None
 
@@ -600,8 +617,8 @@ def load_watermark_assets(base_dir, config, logo_path=None, logo_plan=None):
         signature=signature,
         logo=logo,
         logo_name=logo_name,
-        max_width=max_width,
-        reserved_right_width=RIGHT_GAP + right_mark_width,
+        max_width=max(mark_widths, default=0),
+        reserved_right_width=RIGHT_GAP + right_mark_width if right_mark_width else 0,
         internal_reserved_width=(
             RIGHT_GAP + max_internal_mark_width if max_internal_mark_width else 0
         ),
@@ -609,74 +626,118 @@ def load_watermark_assets(base_dir, config, logo_path=None, logo_plan=None):
     )
 
 
-def calculate_layout_metrics(items, config, watermark_assets):
-    """计算画布宽度、照片顶部位置和照片横向间距。"""
-    widths = [item.image.size[0] for item in items]
-    total_photo_width = sum(widths)
-    photo_top = round((CANVAS_H - config.line_bottom_margin - config.photo_height) / 2)
-    internal_reserved_width = getattr(watermark_assets, "internal_reserved_width", 0)
-
-    if photo_top < 0:
-        raise ValueError(
-            f"photo_height={config.photo_height} 太大，导致照片超出画布高度。"
-            "请降低 photo_height。"
+def get_photo_marks(watermark_assets, photo_count):
+    """统一水印计划；兼容只指定最右侧水印的旧调用。"""
+    marks = watermark_assets.photo_marks
+    if not marks:
+        marks = [PhotoWatermark(None, None, False) for _ in range(photo_count)]
+        marks[-1] = PhotoWatermark(
+            watermark_assets.logo, watermark_assets.logo_name, True,
         )
+    if len(marks) != photo_count:
+        raise ValueError("水印计划和照片数量不一致。")
+    return marks
 
+
+def get_annotation_extents(items, config, watermark_assets):
+    """计算照片左右两侧的实际横向占用，测量和绘制使用同一份文字图。"""
+    left_extents = []
+    for item in items:
+        widths = [0]
+        for image, gap in (
+            (getattr(item, "settings_image", None), config.info_gap_x),
+            (getattr(item, "location_image", None), config.location_gap_x),
+        ):
+            if image is not None:
+                widths.append(gap + image.width)
+        left_extents.append(max(widths))
+
+    right_extents = []
+    for mark in get_photo_marks(watermark_assets, len(items)):
+        width = get_mark_width(watermark_assets.signature, mark)
+        right_extents.append(RIGHT_GAP + width if width else 0)
+    return left_extents, right_extents
+
+
+def calculate_layout_metrics(items, config, watermark_assets):
+    """统一计算边距、图间距及最终尺寸，不修改原图或调用者的配置。"""
     n = len(items)
+    if not n:
+        raise ValueError("没有可绘制的照片。")
+    sizes = [getattr(item, "source_size", None) or item.image.size for item in items]
+
+    def widths_at_height(height):
+        return [max(1, round(width * height / source_height)) for width, source_height in sizes]
+
+    left, right = get_annotation_extents(items, config, watermark_assets)
+    # a 按最右图两侧占用计算；同时覆盖每对相邻图的实际占用。
+    collision_width = max(
+        [right[-1] + left[-1]]
+        + [right[i] + left[i + 1] for i in range(n - 1)]
+    ) if n > 1 else 0
+    height = config.photo_height
+    available_height = CANVAS_H - config.line_bottom_margin
 
     if config.output_mode == "adaptive":
-        if photo_top < watermark_assets.max_width:
-            raise ValueError(
-                f"照片上边距 {photo_top}px 小于 logo / 签名宽度 "
-                f"{watermark_assets.max_width}px，右侧标记无法放入等边距画布。"
-                "请降低 photo_height、减小 line_bottom_margin，或使用 video 输出模式。"
-            )
-
-        if n > 1 and internal_reserved_width and photo_top < internal_reserved_width:
-            raise ValueError(
-                f"照片间距 {photo_top}px 小于中间 logo 需要的空间 "
-                f"{internal_reserved_width}px。请降低 photo_height 以增加 photo_gap。"
-            )
-
-        photo_gap = photo_top
-        canvas_w = total_photo_width + photo_gap * (n + 1)
-    else:
-        required_min_width = total_photo_width + watermark_assets.reserved_right_width
-
-        if required_min_width >= CANVAS_W:
-            raise ValueError(
-                f"照片总宽度 {total_photo_width}px，加右侧 logo / 签名预留空间 "
-                f"{watermark_assets.reserved_right_width}px 后超过或接近画布宽度 "
-                f"{CANVAS_W}px。请降低 photo_height，或减小 RIGHT_GAP / LOGO_HEIGHT。"
-            )
-
-        canvas_w = CANVAS_W
-
-        if n == 1:
-            photo_gap = round(
-                (canvas_w - total_photo_width - watermark_assets.reserved_right_width) / 2
-            )
+        photo_top = round((available_height - height) / 2)
+        if height > available_height:
+            raise ValueError("photo_height 太大，照片超出画布高度。请降低 photo_height。")
+        if n > 1:
+            side_margin = round(photo_top * 1.8)
+            if side_margin < max(left[0], right[-1], collision_width + 1):
+                raise ValueError(
+                    "上留白的 1.8 倍不足以容纳水印和参数。"
+                    "请降低 photo_height 以增加上留白，或减小字号 / 标记间距。"
+                )
         else:
-            photo_gap = round(
-                (canvas_w - total_photo_width - watermark_assets.reserved_right_width)
-                / (n + 1)
-            )
-
-        if n > 1 and internal_reserved_width and photo_gap < internal_reserved_width:
+            side_margin = max(photo_top, left[0], right[-1], 1)
+        photo_gap = side_margin
+        widths = widths_at_height(height)
+        canvas_w = sum(widths) + 2 * side_margin + (n - 1) * photo_gap
+    else:
+        height = min(height, available_height)
+        initial_gap = (CANVAS_W - sum(widths_at_height(height))) // (n + 1)
+        min_gap = max(1, left[0], right[-1])
+        # 仅在初始间距小于 a 时触发缓冲；已有 a 到 1.5a 的间距保持原高度。
+        if n > 1 and initial_gap < collision_width:
+            min_gap = max(min_gap, (3 * collision_width + 1) // 2)
+        max_photo_width = CANVAS_W - (n + 1) * min_gap
+        # 宽度随高度单调增加：二分寻找能容纳照片和水印的最大整数高度。
+        low, high = 0, min(height, available_height)
+        while low < high:
+            mid = (low + high + 1) // 2
+            if sum(widths_at_height(mid)) <= max_photo_width:
+                low = mid
+            else:
+                high = mid - 1
+        height = low
+        if height == 0:
             raise ValueError(
-                f"照片间距 {photo_gap}px 小于中间 logo 需要的空间 "
-                f"{internal_reserved_width}px。请降低 photo_height，"
-                "或改用 adaptive 输出模式。"
+                "水印和参数占用过宽，video 画布无法容纳。"
+                "请减小字号或标记间距，或改用 adaptive 模式。"
             )
-
-    if photo_gap < 0:
-        raise ValueError("photo_gap 小于 0，照片无法放入画布。请降低 photo_height。")
+        widths = widths_at_height(height)
+        photo_gap, remainder = divmod(CANVAS_W - sum(widths), n + 1)
+        # 将余数分配到照片宽度（每张最多 +1px），避免最后一侧累积取整误差。
+        order = sorted(
+            range(n),
+            key=lambda i: sizes[i][0] * height / sizes[i][1] - widths[i],
+            reverse=True,
+        )
+        for i in order[:remainder]:
+            widths[i] += 1
+        side_margin = photo_gap
+        canvas_w = CANVAS_W
+        photo_top = round((available_height - height) / 2)
 
     return LayoutMetrics(
         canvas_w=canvas_w,
         canvas_h=CANVAS_H,
         photo_gap=photo_gap,
         photo_top=photo_top,
+        side_margin=side_margin,
+        photo_height=height,
+        photo_widths=tuple(widths),
     )
 
 
@@ -689,14 +750,14 @@ def draw_photo_item(canvas, draw, item, idx, current_x, metrics, config):
         x=current_x,
         y=metrics.photo_top,
         w=photo_w,
-        h=config.photo_height,
+        h=metrics.photo_height,
     )
 
     draw_rotated_camera_settings(
         canvas=canvas,
         photo_x=current_x,
         photo_y=metrics.photo_top,
-        photo_h=config.photo_height,
+        photo_h=metrics.photo_height,
         settings_text=item.metadata.settings,
         location_text=item.metadata.location,
         font=config.info_font,
@@ -708,6 +769,7 @@ def draw_photo_item(canvas, draw, item, idx, current_x, metrics, config):
         gap_x=config.info_gap_x,
         location_gap_x=config.location_gap_x,
         bottom_gap=config.info_bottom_gap,
+        prepared_images=(item.settings_image, item.location_image),
     )
 
     line_y = metrics.canvas_h - config.line_bottom_margin
@@ -733,22 +795,22 @@ def draw_photo_item(canvas, draw, item, idx, current_x, metrics, config):
     )
 
     date_text = item.metadata.date
-    text_w, text_h = get_text_size_with_tracking(
+    date_bbox = get_text_bbox_with_tracking(
         draw,
         date_text,
         config.date_font,
         config.date_tracking,
-    )
+    ) or (0, 0, 0, 0)
     date_x = current_x + config.line_left_offset
     date_y = line_y + config.date_gap_below_line
 
-    if date_x + text_w > metrics.canvas_w:
+    if date_x + date_bbox[2] > metrics.canvas_w:
         warn(
             f"第 {idx + 1} 张照片的日期文字可能超出画布右侧，"
             "但仍会按指定位置绘制。"
         )
 
-    if date_y + text_h > metrics.canvas_h:
+    if date_y + date_bbox[3] > metrics.canvas_h:
         raise ValueError(
             "日期文字会超出画布底部。"
             "请减小 date_font_size、date_gap_below_line，或增大 line_bottom_margin。"
@@ -785,13 +847,7 @@ def draw_single_photo_watermark(
     photo_bottom = placement.y + placement.h
     mark_width = get_mark_width(watermark_assets.signature, mark)
 
-    if config.output_mode == "adaptive" and next_placement is None:
-        side_margin = metrics.canvas_w - photo_right
-        mark_gap = min(RIGHT_GAP, side_margin - mark_width)
-    else:
-        mark_gap = RIGHT_GAP
-
-    mark_x = photo_right + mark_gap
+    mark_x = photo_right + RIGHT_GAP
     bottom_y = photo_bottom
     logo_y = None
     sig_y = None
@@ -819,6 +875,8 @@ def draw_single_photo_watermark(
 
     top_y = min(y for y in (sig_y, logo_y) if y is not None)
 
+    if top_y < 0:
+        raise ValueError("logo / 签名超出画布顶部。请缩短签名文字或减小标记尺寸。")
     if top_y < metrics.photo_top:
         if mark.logo is not None and mark.include_signature:
             warn("签名和 logo 的组合高度过高，可能超过照片顶部。")
@@ -836,19 +894,7 @@ def draw_single_photo_watermark(
 
 def draw_watermark_assets(canvas, watermark_assets, photo_placements, metrics, config):
     """按照片水印计划绘制签名和品牌 logo。"""
-    photo_marks = watermark_assets.photo_marks
-
-    if not photo_marks:
-        photo_marks = [
-            PhotoWatermark(
-                logo=watermark_assets.logo,
-                logo_name=watermark_assets.logo_name,
-                include_signature=True,
-            )
-        ]
-
-    if len(photo_marks) != len(photo_placements):
-        raise ValueError("水印计划和照片数量不一致。")
+    photo_marks = get_photo_marks(watermark_assets, len(photo_placements))
 
     for idx, (placement, mark) in enumerate(zip(photo_placements, photo_marks, strict=True)):
         next_placement = (
@@ -871,8 +917,9 @@ def print_export_summary(output_path, items, metrics, config):
     """输出排版参数，方便 Finder 错误日志和手动调参时查看。"""
     info(f"已导出：{output_path}")
     info(f"画布尺寸：{metrics.canvas_w} x {metrics.canvas_h}")
-    info(f"照片高度 photo_height：{config.photo_height}")
+    info(f"照片高度 photo_height：{metrics.photo_height}（请求 {config.photo_height}）")
     info(f"横线底部边距 line_bottom_margin：{config.line_bottom_margin}")
+    info(f"左右留白 side_margin：{metrics.side_margin}")
     info(f"照片间距 photo_gap：{metrics.photo_gap}")
     info(f"横线左侧偏移 line_left_offset：{config.line_left_offset}")
     info(f"输出模式 output_mode：{config.output_mode}")
@@ -921,16 +968,23 @@ def prepare_fonts(config):
 
 
 def make_canvas(photo_paths, output_path, config=None):
-    """将 1-3 张照片排版到画布并导出。"""
-    config = config or LayoutConfig()
+    """将照片排版到画布并导出；adaptive 不限制张数或画布宽度。"""
+    config = replace(config) if config is not None else LayoutConfig()
     photo_paths = [Path(p) for p in photo_paths]
     output_path = Path(output_path)
 
     validate_layout_params(photo_count=len(photo_paths), config=config)
+    if output_path.suffix.lower() not in {".jpg", ".jpeg", ".png"}:
+        raise ValueError("输出文件只支持 .jpg、.jpeg 或 .png 后缀。")
+    for path in photo_paths:
+        if output_path.resolve() == path.resolve() or (
+            output_path.exists() and path.exists() and output_path.samefile(path)
+        ):
+            raise ValueError("输出路径不能与任何输入照片相同，请另选文件名以保留原图。")
     prepare_fonts(config)
 
     base_dir = get_asset_base_dir()
-    items = load_photo_items(photo_paths=photo_paths, config=config)
+    items = load_photo_items(photo_paths=photo_paths, config=config, defer_pixels=True)
 
     logo_plan = select_logo_paths_for_items(items, base_dir)
     watermark_assets = load_watermark_assets(
@@ -944,12 +998,25 @@ def make_canvas(photo_paths, output_path, config=None):
         watermark_assets=watermark_assets,
     )
 
+    if output_path.suffix.lower() != ".png" and metrics.canvas_w > 65500:
+        raise ValueError(
+            f"合成宽度为 {metrics.canvas_w}px，超过 JPEG 编码器的 65500px 限制。"
+            "请用 -o 指定 .png 输出；adaptive 本身不限制宽度。"
+        )
+
     canvas = Image.new("RGB", (metrics.canvas_w, metrics.canvas_h), config.background_color)
     draw = ImageDraw.Draw(canvas)
-    current_x = metrics.photo_gap
+    current_x = metrics.side_margin
     photo_placements = []
 
+    if metrics.photo_height < config.photo_height:
+        info(f"video 自动降低照片高度：{config.photo_height} → {metrics.photo_height}px。")
+
     for idx, item in enumerate(items):
+        with open_image_correct_orientation(item.path, mode="RGB") as original:
+            item.image = original.resize(
+                (metrics.photo_widths[idx], metrics.photo_height), Image.Resampling.LANCZOS,
+            )
         placement = draw_photo_item(
             canvas=canvas,
             draw=draw,
@@ -960,10 +1027,9 @@ def make_canvas(photo_paths, output_path, config=None):
             config=config,
         )
         photo_placements.append(placement)
-        current_x += item.image.size[0] + metrics.photo_gap
-
-    if not photo_placements:
-        raise ValueError("没有可绘制的照片。")
+        current_x += placement.w + metrics.photo_gap
+        item.image.close()
+        item.image = None
 
     draw_watermark_assets(
         canvas=canvas,

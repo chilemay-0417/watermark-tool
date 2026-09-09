@@ -10,7 +10,7 @@ ASSETS_DIR = PROJECT_ROOT / "assets"
 SAMPLES_DIR = PROJECT_ROOT / "samples"
 
 # 输出模式："video" 固定输出 3840 x 2160；"adaptive" 按照片内容调整宽度。
-OUTPUT_MODE = "adaptive"
+OUTPUT_MODE = "video"
 
 # video 模式下的固定输出尺寸。
 CANVAS_W = 3840
@@ -163,11 +163,14 @@ class PhotoMetadata:
 
 @dataclass
 class PhotoItem:
-    """排版阶段使用的一张照片，包含已缩放图片和元信息。"""
+    """排版阶段使用的一张照片，原图在确定最终布局后只缩放一次。"""
 
     path: Path
-    image: Image.Image
+    image: Optional[Image.Image]
     metadata: PhotoMetadata
+    settings_image: Optional[Image.Image] = None
+    location_image: Optional[Image.Image] = None
+    source_size: Optional[Tuple[int, int]] = None
 
 
 @dataclass
@@ -200,6 +203,9 @@ class LayoutMetrics:
     canvas_h: int
     photo_gap: int
     photo_top: int
+    side_margin: int
+    photo_height: int
+    photo_widths: Tuple[int, ...]
 
 
 @dataclass

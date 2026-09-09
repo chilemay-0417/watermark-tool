@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import math
 import re
 import time
 import urllib.error
@@ -27,6 +28,7 @@ TAG_F_NUMBER = 33437
 TAG_ISO = 34855
 TAG_DATETIME_ORIGINAL = 36867
 TAG_FOCAL_LENGTH = 37386
+TAG_FOCAL_LENGTH_35MM = 41989
 
 GPS_LATITUDE_REF = 1
 GPS_LATITUDE = 2
@@ -125,22 +127,24 @@ def format_number(value, decimals=1):
 
 
 def format_exposure_time(value):
+    """保留曝光时长；倒数表示的相对误差不超过 0.1% 时才使用 1/N。"""
     v = rational_to_float(value)
 
-    if not v or v <= 0:
+    if v is None or not math.isfinite(v) or v <= 0:
         return ""
 
-    if v < 1:
+    if v < 1 and math.isfinite(1 / v):
         denominator = round(1 / v)
-        return f"1/{denominator}s"
+        if abs(1 / denominator - v) <= v * 0.001:
+            return f"1/{denominator}s"
 
-    return f"{format_number(v, 1)}s"
+    return f"{v:.12g}s"
 
 
 def format_aperture(value):
     v = rational_to_float(value)
 
-    if not v:
+    if v is None or not math.isfinite(v) or v <= 0:
         return ""
 
     return f"f/{format_number(v, 1)}"
@@ -152,19 +156,18 @@ def format_iso(value):
     if value is None or value == "":
         return ""
 
-    if isinstance(value, (tuple, list)) and value:
-        value = value[0]
-
-    try:
-        return f"ISO{int(value)}"
-    except Exception:
-        return f"ISO{value}"
+    if isinstance(value, (tuple, list)):
+        value = value[0] if value else None
+    v = rational_to_float(value)
+    if v is None or not math.isfinite(v) or v <= 0 or not v.is_integer():
+        return ""
+    return f"ISO{int(v)}"
 
 
 def format_focal_length(value):
     v = rational_to_float(value)
 
-    if not v:
+    if v is None or not math.isfinite(v) or v <= 0:
         return ""
 
     return f"{format_number(v, 1)}mm"
@@ -185,7 +188,9 @@ def format_photo_date(value):
 
 def format_camera_settings(exif_data):
     items = [
-        format_focal_length(exif_data.get(TAG_FOCAL_LENGTH)),
+        # 优先使用有效的 35mm 等效焦距，无效时回退到实际焦距。
+        format_focal_length(exif_data.get(TAG_FOCAL_LENGTH_35MM))
+        or format_focal_length(exif_data.get(TAG_FOCAL_LENGTH)),
         format_aperture(exif_data.get(TAG_F_NUMBER)),
         format_exposure_time(exif_data.get(TAG_EXPOSURE_TIME)),
         format_iso(exif_data.get(TAG_ISO)),
@@ -211,14 +216,16 @@ def format_gps_ref(value):
 
 
 def gps_coord_to_decimal(values, ref):
-    if not values or len(values) < 3:
+    if not isinstance(values, (tuple, list)) or len(values) != 3:
         return None
 
     degrees = rational_to_float(values[0])
     minutes = rational_to_float(values[1])
     seconds = rational_to_float(values[2])
 
-    if degrees is None or minutes is None or seconds is None:
+    if any(v is None or not math.isfinite(v) or v < 0 for v in (degrees, minutes, seconds)):
+        return None
+    if minutes >= 60 or seconds >= 60:
         return None
 
     result = degrees + minutes / 60 + seconds / 3600
@@ -240,10 +247,13 @@ def read_gps_coordinates(exif_data):
     lon_values = get_gps_value(gps_data, GPS_LONGITUDE, "GPSLongitude")
     lon_ref = get_gps_value(gps_data, GPS_LONGITUDE_REF, "GPSLongitudeRef")
 
+    if format_gps_ref(lat_ref) not in {"N", "S"} or format_gps_ref(lon_ref) not in {"E", "W"}:
+        return None
+
     lat = gps_coord_to_decimal(lat_values, lat_ref)
     lon = gps_coord_to_decimal(lon_values, lon_ref)
 
-    if lat is None or lon is None:
+    if lat is None or lon is None or abs(lat) > 90 or abs(lon) > 180:
         return None
 
     return lat, lon
@@ -407,8 +417,8 @@ def fetch_reverse_geocode_data(lat, lon, language, timeout, zoom):
         },
     )
 
+    LAST_LOCATION_LOOKUP_TIME = time.monotonic()
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        LAST_LOCATION_LOOKUP_TIME = time.monotonic()
         return json.loads(response.read().decode("utf-8"))
 
 

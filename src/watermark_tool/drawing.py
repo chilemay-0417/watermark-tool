@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import tempfile
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -100,14 +102,8 @@ def resize_by_height(img, target_h):
     if h <= 0:
         raise ValueError("图片高度异常，无法缩放。")
 
-    target_w = round(w * target_h / h)
-
-    try:
-        resample = Image.Resampling.LANCZOS
-    except AttributeError:
-        resample = Image.LANCZOS
-
-    return img.resize((target_w, target_h), resample)
+    target_w = max(1, round(w * target_h / h))
+    return img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
 
 def register_heif_opener():
@@ -164,6 +160,21 @@ def open_image_correct_orientation(path, mode="RGB"):
     with Image.open(path) as img:
         img = ImageOps.exif_transpose(img)
         return img.convert(mode)
+
+
+def get_oriented_image_size(path):
+    """常见格式只读图片头；RAW 用同一解码器测量后立即释放像素。"""
+    path = Path(path)
+    if path.suffix.lower() in RAW_SUFFIXES:
+        with open_image_correct_orientation(path) as img:
+            return img.size
+    if path.suffix.lower() in HEIC_SUFFIXES:
+        register_heif_opener()
+    with Image.open(path) as img:
+        width, height = img.size
+        if img.getexif().get(274) in (5, 6, 7, 8):
+            return height, width
+        return width, height
 
 
 def load_font(font_size, font_path=None, label="日期字体", prefer_cjk=False):
@@ -254,11 +265,8 @@ def load_signature_font(font_size, font_path=None, text=""):
 
 
 def get_text_size(draw, text, font):
-    try:
-        bbox = draw.textbbox((0, 0), text, font=font)
-        return bbox[2] - bbox[0], bbox[3] - bbox[1]
-    except Exception:
-        return draw.textsize(text, font=font)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
 def get_text_size_with_tracking(draw, text, font, tracking):
@@ -299,11 +307,7 @@ def get_text_bbox_with_tracking(draw, text, font, tracking):
     max_y = None
 
     for i, char in enumerate(text):
-        try:
-            bbox = draw.textbbox((current_x, 0), char, font=font)
-        except Exception:
-            char_w, char_h = get_text_size(draw, char, font)
-            bbox = (current_x, 0, current_x + char_w, char_h)
+        bbox = draw.textbbox((current_x, 0), char, font=font)
 
         if min_x is None:
             min_x, min_y, max_x, max_y = bbox
@@ -409,20 +413,30 @@ def draw_rotated_camera_settings(
     gap_x,
     location_gap_x,
     bottom_gap,
+    prepared_images=None,
 ):
     """在每张照片的左下侧插入旋转后的拍摄参数和地点。"""
     if not settings_text and not location_text:
         return
 
-    settings_img = make_rotated_text_image(settings_text, font, fill, tracking)
-    location_img = make_rotated_text_image(
-        location_text,
-        location_font,
-        fill,
-        location_tracking,
-    )
+    if prepared_images is None:
+        settings_img = make_rotated_text_image(settings_text, font, fill, tracking)
+        location_img = make_rotated_text_image(
+            location_text, location_font, fill, location_tracking,
+        )
+    else:
+        settings_img, location_img = prepared_images
 
     current_bottom = photo_y + photo_h - bottom_gap
+    images = [img for img in (settings_img, location_img) if img is not None]
+    text_height = sum(img.height for img in images)
+    if len(images) == 2:
+        text_height += location_gap
+    if current_bottom - text_height < 0 or current_bottom > canvas.height:
+        raise ValueError(
+            "参数 / 地点文字超出画布上下边界。"
+            "请减小 info_font_size、location_font_size、info_location_gap 或 info_bottom_gap。"
+        )
 
     if settings_img is not None:
         settings_w, settings_h = settings_img.size
@@ -464,10 +478,19 @@ def save_best_quality_jpeg(img, output_path, quality=95):
 
 
 def save_best_quality_image(img, output_path, jpeg_quality=95):
+    """先完整编码到同目录临时文件，成功后原子替换，失败不破坏已有输出。"""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if output_path.suffix.lower() == ".png":
-        img.save(output_path, format="PNG", compress_level=0)
-    else:
-        save_best_quality_jpeg(img, output_path, quality=jpeg_quality)
+    with tempfile.NamedTemporaryFile(
+        prefix=".watermark-", suffix=output_path.suffix,
+        dir=output_path.parent, delete=False,
+    ) as temp_file:
+        temp_path = Path(temp_file.name)
+    try:
+        if output_path.suffix.lower() == ".png":
+            img.save(temp_path, format="PNG", compress_level=0)
+        else:
+            save_best_quality_jpeg(img, temp_path, quality=jpeg_quality)
+        os.replace(temp_path, output_path)
+    finally:
+        temp_path.unlink(missing_ok=True)

@@ -50,6 +50,9 @@ def make_default_output_path(photo_paths):
 
     output_dir = paths[0].parent
     joined_stem = "_".join(path.stem for path in paths)
+    if len(joined_stem.encode("utf-8")) > 180:
+        short_stem = paths[0].stem.encode("utf-8")[:120].decode("utf-8", errors="ignore")
+        joined_stem = f"{short_stem}_and_{len(paths) - 1}_photos" if len(paths) > 1 else short_stem
     return make_unique_output_path(output_dir / f"{joined_stem}_watermark.jpg")
 
 
@@ -62,15 +65,16 @@ def build_parser(defaults=None):
     defaults = defaults or LayoutConfig()
     parser = argparse.ArgumentParser(
         description=(
-            "将 1-3 张照片排版到画布，并自动添加日期、拍摄参数、"
-            "相机品牌 logo 与签名。video 模式输出 3840x2160。"
+            "将照片排版到画布，并自动添加日期、拍摄参数、"
+            "相机品牌 logo 与签名。video 支持 1-3 张，输出 3840x2160；"
+            "adaptive 不限制张数或画布宽度。"
         )
     )
 
     parser.add_argument(
         "photos",
         nargs="+",
-        help="输入照片路径。横照通常 1 张，竖照可 2-3 张。",
+        help="输入照片路径。video 最多 3 张；adaptive 可合成任意多张。",
     )
     parser.add_argument(
         "-o",
@@ -85,7 +89,7 @@ def build_parser(defaults=None):
         "--height",
         type=int,
         default=defaults.photo_height,
-        help=f"插入画布中的照片高度，默认 {defaults.photo_height}px。",
+        help=f"照片高度，默认 {defaults.photo_height}px；video 空间不足时自动降低。",
     )
     parser.add_argument(
         "--line-bottom-margin",
