@@ -19,7 +19,7 @@ from watermark_tool.config import LayoutConfig
 from watermark_tool.drawing import get_oriented_image_size, open_image_correct_orientation
 from watermark_tool.exif_gps import read_photo_metadata
 from watermark_tool.metadata import collect_metadata
-from watermark_tool.preserved import make_preserved_canvas, write_png
+from watermark_tool.preserved import write_png
 from watermark_tool.raster import ColorSpec, read_raster, transform_icc
 from watermark_tool.renderer import make_canvas
 
@@ -65,9 +65,11 @@ class PreservationTests(unittest.TestCase):
         np.testing.assert_array_equal(actual, original)
         return raster
 
-    def test_defaults_remain_4k_jpeg100_with_gps_lookup_enabled(self):
+    def test_cli_defaults_follow_layout_config(self):
         config = config_from_args(build_parser().parse_args(["input.jpg"]))
-        self.assertEqual((config.output_mode, config.jpeg_quality), ("video", 100))
+        defaults = LayoutConfig()
+        self.assertEqual(config.output_mode, defaults.output_mode)
+        self.assertEqual(config.jpeg_quality, defaults.jpeg_quality)
         self.assertEqual(config.color_mode, "preserve")
         self.assertEqual(config.metadata_policy, "safe")
         self.assertFalse(config.preserve_gps)
@@ -286,7 +288,7 @@ class PreservationTests(unittest.TestCase):
         output.write_bytes(b"previous")
         with patch("watermark_tool.preserved.write_png", side_effect=OSError("disk full")):
             with suppress_watermark_logs(), self.assertRaisesRegex(OSError, "disk full"):
-                make_preserved_canvas([source], output, self.cfg)
+                make_canvas([source], output, self.cfg)
         self.assertEqual(output.read_bytes(), b"previous")
         self.assertFalse(list(self.root.glob(".watermark-*")))
 

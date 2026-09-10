@@ -10,7 +10,9 @@ from tests.test_layout import suppress_watermark_logs
 from watermark_tool import exif_gps
 from watermark_tool.config import LayoutConfig, LayoutMetrics, PhotoItem, PhotoMetadata
 from watermark_tool.drawing import draw_rotated_camera_settings, save_best_quality_image
-from watermark_tool.renderer import draw_photo_item, make_canvas, validate_layout_params
+from watermark_tool.annotations import draw_photo_item
+from watermark_tool.renderer import make_canvas
+from watermark_tool.layout import validate_layout_params
 
 
 class ExportSafetyTests(unittest.TestCase):

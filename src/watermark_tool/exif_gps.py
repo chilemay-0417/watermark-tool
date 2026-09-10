@@ -7,16 +7,15 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from PIL import Image
-
 from .config import (
     GPS_LOCATION_LANGUAGE,
     GPS_LOCATION_TIMEOUT,
     INCLUDE_GPS_LOCATION,
     PhotoMetadata,
 )
-from .drawing import HEIC_SUFFIXES, register_heif_opener
-from .utils import warn
+from .metadata import read_source_metadata
+from .utils import progress, warn
+from .location_cache import LOCATION_TTL, cached_location
 
 
 TAG_MAKE = 271
@@ -57,44 +56,18 @@ def clean_exif_value(value):
     return value
 
 
-def read_exif_all(image_path):
-    """读取照片 EXIF 信息，并展开 ExifOffset 和 GPSInfo 子 IFD。"""
-    result = {}
-    image_path = str(image_path)
-
-    try:
-        if str(image_path).lower().endswith(tuple(HEIC_SUFFIXES)):
-            register_heif_opener()
-
-        with Image.open(image_path) as img:
-            exif = img.getexif()
-
-            if not exif:
-                return result
-
-            for tag_id, value in exif.items():
-                result[tag_id] = value
-
-            try:
-                exif_ifd = exif.get_ifd(TAG_EXIF_OFFSET)
-
-                for tag_id, value in exif_ifd.items():
-                    result[tag_id] = value
-            except Exception as exc:
-                warn(f"无法展开 ExifOffset：{image_path}，原因：{exc}")
-
-            try:
-                gps_ifd = exif.get_ifd(TAG_GPS_INFO)
-
-                if gps_ifd:
-                    result[TAG_GPS_INFO] = dict(gps_ifd)
-            except Exception as exc:
-                if TAG_GPS_INFO in exif:
-                    warn(f"无法展开 GPSInfo：{image_path}，原因：{exc}")
-
-    except Exception as exc:
-        warn(f"读取 EXIF 失败：{image_path}，原因：{exc}")
-
+def read_exif_all(image_path, *, source=None):
+    """Flatten the shared metadata snapshot for display and GPS formatting."""
+    if source is None:
+        try:
+            source = read_source_metadata(image_path)
+        except (OSError, ValueError, TypeError, SyntaxError) as exc:
+            warn(f"读取 EXIF 失败：{image_path}，原因：{exc}")
+            return {}
+    root, nested, gps, _, _ = source
+    result = {**root, **nested}
+    if gps:
+        result[TAG_GPS_INFO] = gps
     return result
 
 
@@ -436,8 +409,15 @@ def fetch_reverse_geocode_data(lat, lon, language, timeout, zoom):
 def reverse_geocode_location(lat, lon, language, timeout):
     cache_key = (round(lat, 5), round(lon, 5), language)
 
-    if cache_key in LOCATION_CACHE:
-        return LOCATION_CACHE[cache_key]
+    now = time.time()
+    cached = LOCATION_CACHE.get(cache_key)
+    if cached is not None and cached[1] > now:
+        return cached[0]
+    cached = cached_location(cache_key)
+    if cached is not None:
+        LOCATION_CACHE[cache_key] = cached
+        return cached[0]
+    progress("正在查询地点…")
 
     location = ""
     deadline = time.monotonic() + timeout
@@ -477,7 +457,12 @@ def reverse_geocode_location(lat, lon, language, timeout):
     except Exception as exc:
         warn(f"GPS 地点反查失败：{lat:.6f}, {lon:.6f}，原因：{exc}")
 
-    LOCATION_CACHE[cache_key] = location
+    # Empty/failed lookups are only throttled briefly in memory, never persisted.
+    LOCATION_CACHE[cache_key] = (location, time.time() + (LOCATION_TTL if location else 60))
+    if len(LOCATION_CACHE) > 2048:
+        LOCATION_CACHE.pop(next(iter(LOCATION_CACHE)))
+    if location:
+        cached_location(cache_key, location)
     return location
 
 
@@ -498,13 +483,7 @@ def read_photo_metadata(
     gps_location_timeout=GPS_LOCATION_TIMEOUT,
     *, source=None,
 ):
-    if source is None:
-        exif_data = read_exif_all(image_path)
-    else:
-        root, nested, gps, _, _ = source
-        exif_data = {**root, **nested}
-        if gps:
-            exif_data[TAG_GPS_INFO] = gps
+    exif_data = read_exif_all(image_path, source=source)
     make = clean_exif_value(exif_data.get(TAG_MAKE, ""))
     model = clean_exif_value(exif_data.get(TAG_MODEL, ""))
     location = ""

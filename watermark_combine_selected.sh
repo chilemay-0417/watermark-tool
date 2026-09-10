@@ -7,6 +7,7 @@ SCRIPT_PATH="${(%):-%N}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 source "$SCRIPT_DIR/scripts/finder_common.zsh" || exit 1
+export WATERMARK_FINDER_PROGRESS="${WATERMARK_FINDER_PROGRESS:-1}"
 initialize_finder "$@" || exit 1
 
 if ! OUTPUT_PATH="$("$PYTHON_BIN" - "$@" <<'PY'

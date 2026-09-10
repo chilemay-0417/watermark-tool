@@ -10,7 +10,7 @@ ASSETS_DIR = PROJECT_ROOT / "assets"
 SAMPLES_DIR = PROJECT_ROOT / "samples"
 
 # 输出模式：video 固定 4K；adaptive 固定高度、调整宽度；original 保留原尺寸。
-OUTPUT_MODE = "video"
+OUTPUT_MODE = "adaptive"
 
 # video 模式下的固定输出尺寸。
 CANVAS_W = 3840
@@ -106,6 +106,10 @@ BRAND_RULES_FILE = "brands.json"
 # JPEG 默认最高质量；仍为有损编码，保真输出使用 PNG。
 JPEG_QUALITY = 100
 
+# PNG 三档均为无损，仅改变编码耗时和体积。
+PNG_COMPRESSION = "balanced"
+PNG_COMPRESSION_LEVELS = {"fast": 1, "balanced": 6, "small": 9}
+
 RGB = Tuple[int, int, int]
 
 
@@ -147,6 +151,7 @@ class LayoutConfig:
     metadata_policy: str = "safe"
     preserve_gps: bool = False
     jpeg_quality: int = JPEG_QUALITY
+    png_compression: str = PNG_COMPRESSION
     date_font: Optional[Any] = None
     info_font: Optional[Any] = None
     location_font: Optional[Any] = None
@@ -188,14 +193,11 @@ class PhotoWatermark:
 
 @dataclass
 class WatermarkAssets:
-    """右侧 logo / 签名资源，以及排版时需要的尺寸。"""
+    """右侧 logo / 签名资源与逐图水印计划；尺寸由布局阶段实时测量。"""
 
     signature: Optional[Image.Image]
     logo: Optional[Image.Image]
     logo_name: Optional[str]
-    max_width: int
-    reserved_right_width: int
-    internal_reserved_width: int = 0
     photo_marks: Optional[Any] = None
 
 

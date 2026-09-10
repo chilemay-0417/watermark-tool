@@ -1,27 +1,25 @@
 """Composite in the output color space at native precision, quantizing only at export."""
 
-from pathlib import Path
-import os
 import struct
-import tempfile
 import zlib
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image
 
-from .config import LayoutMetrics, PhotoPlacement, LOGO_SIGNATURE_GAP
+from . import annotations
+from .annotation_tiles import AnnotationTiles
 from .color import require_sdr_transfer
+from .config import PNG_COMPRESSION_LEVELS
 from .metadata import collect_metadata
 from .raster import (
     ColorSpec,
-    inspect_raster,
     matrix_profile,
     read_raster,
     resize_samples,
     srgb_to_color,
     transform_icc,
 )
-from .utils import info, warn
+from .utils import atomic_output_path, info, progress, warn
 
 
 def png_chunk(stream, tag, data):
@@ -31,8 +29,9 @@ def png_chunk(stream, tag, data):
     stream.write(struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
 
 
-def write_png(path, pixels, bits, color, metadata):
+def write_png(path, pixels, bits, color, metadata, *, compression="balanced"):
     """Stream 8/16-bit lossless PNG with matching color and rebuilt metadata."""
+    level = PNG_COMPRESSION_LEVELS[compression]
     require_sdr_transfer(color.transfer)
     if color.cicp:
         require_sdr_transfer(color.cicp[1])
@@ -62,7 +61,7 @@ def write_png(path, pixels, bits, color, metadata):
             png_chunk(stream, b"pHYs", struct.pack(">IIB", round(x / 0.0254), round(y / 0.0254), 1))
         if metadata.get("xmp"):
             png_chunk(stream, b"iTXt", b"XML:com.adobe.xmp\0\0\0\0\0" + metadata["xmp"])
-        compressor = zlib.compressobj(6)
+        compressor = zlib.compressobj(level)
         for row in pixels:
             data = row.astype(">u2" if bits == 16 else np.uint8).tobytes()
             encoded = compressor.compress(b"\0" + data)
@@ -100,61 +99,8 @@ def convert_samples(raster, target):
     return raster.pixels.astype(np.float32) / raster.maximum
 
 
-def original_metrics(items, cfg, assets):
-    from .renderer import get_annotation_extents, get_photo_marks
-    from .drawing import get_text_bbox_with_tracking
-
-    left, right = get_annotation_extents(items, cfg, assets)
-    sizes = [item.source_size for item in items]
-    measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
-    footer_extra = []
-    for item, size in zip(items, sizes, strict=True):
-        bbox = get_text_bbox_with_tracking(
-            measure, item.metadata.date, cfg.date_font, cfg.date_tracking,
-        ) or (0, 0, 0, 0)
-        footer_extra.append(max(0, cfg.line_left_offset + max(cfg.line_length, bbox[2]) - size[0]))
-    margin = max(80, left[0] + 20, right[-1] + 20, footer_extra[-1] + 20)
-    gap = max([margin] + [right[i] + left[i + 1] + 40 for i in range(len(items) - 1)]
-              + [extra + 20 for extra in footer_extra[:-1]])
-    height = max(size[1] for size in sizes)
-    top = 100
-    # Enough room for long vertical marks even on small source images.
-    for item, mark in zip(items, get_photo_marks(assets, len(items)), strict=True):
-        mark_h = mark.logo.height if mark.logo else 0
-        if mark.include_signature and assets.signature:
-            mark_h += assets.signature.height + (LOGO_SIGNATURE_GAP if mark.logo else 0)
-        texts = [im for im in (item.settings_image, item.location_image) if im is not None]
-        text_h = sum(im.height for im in texts) + cfg.info_bottom_gap
-        if len(texts) == 2:
-            text_h += cfg.info_location_gap
-        top = max(top, max(mark_h, text_h) - item.source_size[1] + 20)
-    return LayoutMetrics(
-        sum(s[0] for s in sizes) + 2 * margin + (len(items) - 1) * gap,
-        top + height + max(80, cfg.line_bottom_margin) + 40,
-        gap,
-        top,
-        margin,
-        height,
-        tuple(s[0] for s in sizes),
-    )
-
-
-def make_preserved_canvas(paths, output_path, config):
-    from .renderer import (
-        prepare_fonts,
-        load_photo_items,
-        get_asset_base_dir,
-        select_logo_paths_for_items,
-        load_watermark_assets,
-        calculate_layout_metrics,
-        draw_photo_item,
-        draw_watermark_assets,
-        print_export_summary,
-    )
-
-    prepare_fonts(config)
-    # Inspect every source first, then hold at most one decoded photograph during compositing.
-    headers = [inspect_raster(path) for path in paths]
+def render_preserved_canvas(paths, output_path, config, items, headers, assets, metrics):
+    """Composite prepared inputs at native precision, decoding one photo at a time."""
     target = choose_color(headers)
     is_png = output_path.suffix.lower() == ".png"
     bits = (
@@ -167,19 +113,13 @@ def make_preserved_canvas(paths, output_path, config):
     )
     if not is_png and max(r.bits for r in headers) > 8:
         warn("JPEG 只支持此路径的 8 位输出，原图位深将降低；保留位深请改用 .png。")
-    items = load_photo_items(paths, config, defer_pixels=True, headers=headers)
-    base = get_asset_base_dir()
-    assets = load_watermark_assets(base, config, logo_plan=select_logo_paths_for_items(items, base))
-    metrics = (
-        original_metrics(items, config, assets)
-        if config.output_mode == "original"
-        else calculate_layout_metrics(items, config, assets)
-    )
     if not is_png and max(metrics.canvas_w, metrics.canvas_h) > 65500:
         raise ValueError("成片尺寸超过 JPEG 65500px 限制，请使用 .png。")
     # Pillow draws annotations only. Source photo pixels never pass through this 8-bit canvas.
-    annotations = Image.new("RGB", (metrics.canvas_w, metrics.canvas_h), config.background_color)
-    draw = ImageDraw.Draw(annotations)
+    annotation_canvas = AnnotationTiles(
+        (metrics.canvas_w, metrics.canvas_h), config.background_color,
+    )
+    draw = annotation_canvas
     placements = []
     current_x = metrics.side_margin
     for idx, (item, header) in enumerate(zip(items, headers, strict=True)):
@@ -188,43 +128,53 @@ def make_preserved_canvas(paths, output_path, config):
             if config.output_mode == "original"
             else (metrics.photo_widths[idx], metrics.photo_height)
         )
-        item.image = Image.new("RGB", size, config.background_color)
-        placement = draw_photo_item(
-            canvas=annotations,
+        placement = annotations.draw_photo_item(
+            canvas=annotation_canvas,
             draw=draw,
             item=item,
             idx=idx,
             current_x=current_x,
             metrics=metrics,
             config=config,
+            photo_size=size,
         )
-        placements.append(PhotoPlacement(placement.x, placement.y, size[0], size[1]))
-        item.image.close()
-        item.image = None
+        placements.append(placement)
         current_x += size[0] + metrics.photo_gap
-    draw_watermark_assets(annotations, assets, placements, metrics, config)
+    annotations.draw_watermark_assets(annotation_canvas, assets, placements, metrics, config)
     dtype, maximum = (np.uint16, 65535) if bits == 16 else (np.uint8, 255)
     has_alpha = is_png and any(header.has_alpha for header in headers)
     output = np.empty((metrics.canvas_h, metrics.canvas_w, 4 if has_alpha else 3), dtype=dtype)
     if has_alpha:
         output[..., 3] = maximum
-    for start in range(0, metrics.canvas_h, 128):
-        stripe = (
-            np.asarray(
-                annotations.crop((0, start, metrics.canvas_w, min(start + 128, metrics.canvas_h)))
-            ).astype(np.float32)
-            / 255
-        )
-        converted = srgb_to_color(stripe, target)
-        output[start : start + len(stripe), :, :3] = np.rint(
-            np.clip(converted, 0, 1) * maximum
+    background = srgb_to_color(
+        np.asarray([[config.background_color]], dtype=np.float32) / 255, target,
+    )
+    output[..., :3] = np.rint(np.clip(background, 0, 1) * maximum).astype(dtype)
+    # Convert only annotation tiles; uniform background needs just one color conversion.
+    for (x, y), tile in annotation_canvas.tiles.items():
+        converted = srgb_to_color(np.asarray(tile).astype(np.float32) / 255, target)
+        output[y:y + tile.height, x:x + tile.width, :3] = np.rint(
+            np.clip(converted, 0, 1) * maximum,
         ).astype(dtype)
-    annotations.close()
-    for item, header, placement in zip(items, headers, placements, strict=True):
+    annotation_canvas.close()
+    for index, (item, header, placement) in enumerate(
+        zip(items, headers, placements, strict=True), start=1,
+    ):
+        progress(f"正在处理第 {index}/{len(items)} 张：{item.path.name}")
         raster = read_raster(item.path, source_metadata=header.source_metadata)
         if raster.size != header.size or raster.color.key() != header.color.key():
             raise ValueError("照片在处理过程中发生变化，请重新运行。")
         size = (placement.w, placement.h)
+        region = output[
+            placement.y : placement.y + placement.h, placement.x : placement.x + placement.w
+        ]
+        if (raster.color.key() == target.key() and raster.bits == bits
+                and raster.size == size and (is_png or raster.alpha is None)):
+            region[..., :3] = raster.pixels
+            if has_alpha:
+                region[..., 3] = maximum if raster.alpha is None else raster.alpha
+            del raster
+            continue
         alpha = resized_alpha = None
         same_color = raster.color.key() == target.key()
         # Resize integer source planes before allocating normalized RGB, keeping large JPEGs lean.
@@ -250,9 +200,6 @@ def make_preserved_canvas(paths, output_path, config):
                 if raster.alpha is not None
                 else None
             )
-        region = output[
-            placement.y : placement.y + placement.h, placement.x : placement.x + placement.w
-        ]
         if opacity is not None and not is_png:
             bg = srgb_to_color(
                 np.asarray([[config.background_color]], dtype=np.float32) / 255, target
@@ -278,14 +225,10 @@ def make_preserved_canvas(paths, output_path, config):
         paths, (metrics.canvas_w, metrics.canvas_h), config.metadata_policy, config.preserve_gps,
         sources=[header.source_metadata for header in headers],
     )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        prefix=".watermark-", suffix=output_path.suffix, dir=output_path.parent, delete=False
-    ) as temporary:
-        temp_path = Path(temporary.name)
-    try:
+    progress(f"正在保存：{output_path.name}")
+    with atomic_output_path(output_path) as temp_path:
         if is_png:
-            write_png(temp_path, output, bits, target, metadata)
+            write_png(temp_path, output, bits, target, metadata, compression=config.png_compression)
         else:
             Image.fromarray(output).save(
                 temp_path,
@@ -295,10 +238,6 @@ def make_preserved_canvas(paths, output_path, config):
                 icc_profile=target.profile(),
                 **metadata,
             )
-        os.replace(temp_path, output_path)
-    finally:
-        temp_path.unlink(missing_ok=True)
-    print_export_summary(output_path, items, metrics, config)
     info(
         f"输出：{'PNG 无损' if is_png else 'JPEG 质量 ' + str(config.jpeg_quality)} / {bits} 位 / "
         "SDR / 保留来源色域或使用 ProPhoto RGB 合成"

@@ -5,12 +5,12 @@ from hashlib import sha256
 import os
 from pathlib import Path
 import sys
-import tempfile
 
 import numpy as np
 from PIL import Image, __version__ as pillow_version
 
 from .color import SRGB_ICC
+from .utils import atomic_output_path
 
 
 _MEMORY = OrderedDict()
@@ -49,22 +49,12 @@ def prepared_asset(path, height, kind, prepare):
             cached = image.copy()
     except (OSError, ValueError, SyntaxError):
         cached = prepare()
-        temporary = None
         try:
-            directory.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(dir=directory, suffix=".tmp", delete=False) as stream:
-                temporary = Path(stream.name)
-            cached.save(temporary, format="PNG", icc_profile=SRGB_ICC)
-            os.replace(temporary, filename)
+            with atomic_output_path(filename) as temporary:
+                cached.save(temporary, format="PNG", icc_profile=SRGB_ICC)
         except OSError:
             # A read-only or full cache must not prevent exporting a photo.
             pass
-        finally:
-            if temporary is not None:
-                try:
-                    temporary.unlink(missing_ok=True)
-                except OSError:
-                    pass
     _MEMORY[key] = cached
     if len(_MEMORY) > 32:
         _, old = _MEMORY.popitem(last=False)

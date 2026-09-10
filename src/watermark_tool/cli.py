@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .config import LayoutConfig
 from .renderer import make_canvas
-from .utils import configure_logging, error, info
+from .utils import configure_logging, error, info, progress
 
 
 def parse_bool(value):
@@ -202,6 +202,11 @@ def build_parser(defaults=None):
         help="保留单图输出中的 GPS 元数据（默认关闭）；不控制地点联网查询。",
     )
     parser.add_argument(
+        "--png-compression", choices=("fast", "balanced", "small"),
+        default=defaults.png_compression,
+        help="PNG 无损压缩：fast 快速导出、balanced 均衡（默认）、small 较小文件；JPEG 忽略。",
+    )
+    parser.add_argument(
         "--jpeg-quality",
         type=int,
         default=defaults.jpeg_quality,
@@ -314,6 +319,7 @@ def config_from_args(args):
         metadata_policy=args.metadata,
         preserve_gps=args.preserve_gps,
         jpeg_quality=args.jpeg_quality,
+        png_compression=args.png_compression,
     )
 
 
@@ -326,7 +332,8 @@ def main(argv=None):
             parser.error("--batch 逐张生成输出文件名，不能与 -o 同用。")
         config = config_from_args(args)
         failed = 0
-        for photo in args.photos:
+        for index, photo in enumerate(args.photos, start=1):
+            progress(f"批量处理第 {index}/{len(args.photos)} 张：{Path(photo).name}")
             try:
                 make_canvas([photo], make_default_output_path([photo]), config=config)
             except Exception as exc:

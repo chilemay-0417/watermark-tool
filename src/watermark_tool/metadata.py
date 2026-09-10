@@ -134,6 +134,16 @@ def png_metadata(path):
         return parser.im_info
 
 
+def _read_exif_ifd(exif, tag, path):
+    if tag not in exif:
+        return {}
+    try:
+        return dict(exif.get_ifd(tag))
+    except (OSError, ValueError, TypeError, SyntaxError) as exc:
+        warn(f"无法展开 EXIF IFD {tag}：{path}，原因：{exc}")
+        return {}
+
+
 def read_source_metadata(path, image=None):
     """Snapshot metadata once per input, without requesting a pixel decode."""
     if image is None:
@@ -147,8 +157,8 @@ def read_source_metadata(path, image=None):
             # The PNG override loads pixels if this key is missing, even for metadata-only reads.
             image.info.setdefault("exif", b"")
         exif = image.getexif()
-        nested = dict(exif.get_ifd(34665)) if 34665 in exif else {}
-        gps = dict(exif.get_ifd(34853)) if 34853 in exif else {}
+        nested = _read_exif_ifd(exif, 34665, path)
+        gps = _read_exif_ifd(exif, 34853, path)
         return (
             dict(exif), nested, gps, image.info.copy(), IptcImagePlugin.getiptcinfo(image) or {},
         )

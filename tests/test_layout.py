@@ -1,5 +1,6 @@
 import contextlib
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -38,16 +39,20 @@ from watermark_tool import exif_gps
 from watermark_tool import config
 from watermark_tool.cli import parse_bool
 from watermark_tool.cli import make_default_output_path, make_output_path_from_original
-from watermark_tool.renderer import (
+from watermark_tool.layout import (
     calculate_layout_metrics,
-    choose_logo_by_camera,
-    load_watermark_assets,
-    make_canvas,
-    prepare_logo_image,
-    resolve_logo_path,
-    select_logo_paths_for_items,
     validate_layout_params,
 )
+from watermark_tool.brands import (
+    choose_logo_by_camera,
+    resolve_logo_path,
+    select_logo_paths_for_items,
+)
+from watermark_tool.assets import (
+    load_watermark_assets,
+    prepare_logo_image,
+)
+from watermark_tool.renderer import make_canvas
 from watermark_tool.utils import LOGGER
 
 
@@ -88,6 +93,9 @@ def write_test_brand_rules(base_dir):
 
 
 class LayoutFormattingTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(patch.dict(os.environ, WATERMARK_GPS_CACHE_DIR="off"))
+
     def test_default_output_path_uses_unified_watermark_suffix(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             base_dir = Path(tmp_dir)
@@ -660,8 +668,6 @@ class LayoutCalculationTests(unittest.TestCase):
             signature=SimpleNamespace(size=(55, 120)),
             logo=None,
             logo_name=None,
-            max_width=55,
-            reserved_right_width=75,
         )
 
         metrics = calculate_layout_metrics(items, cfg, assets)
@@ -684,8 +690,6 @@ class LayoutCalculationTests(unittest.TestCase):
             signature=SimpleNamespace(size=(55, 120)),
             logo=None,
             logo_name=None,
-            max_width=55,
-            reserved_right_width=75,
         )
 
         metrics = calculate_layout_metrics(items, cfg, assets)

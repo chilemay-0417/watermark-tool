@@ -1,8 +1,10 @@
 # Watermark Tool
 
+**版本：2.1.0**
+
 为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名，支持单张处理、批量导出和多图拼接。可通过命令行使用，也可配置 macOS Finder 右键快速操作。
 
-[下载最新版本](https://github.com/chilemay-0417/watermark-tool/releases/latest) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
+[下载 2.1.0](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.1.0.zip) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [开发说明](docs/development.md) · [更新日志](CHANGELOG.md)
 
 ## 功能与效果
 
@@ -42,7 +44,7 @@
 
 <a href="samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg"><img src="samples/horizontal1_phone1_phone2_vertical1_vertical2_watermark.jpg" alt="adaptive 模式：五张不同设备、不同方向的照片拼接成长图" width="960"></a>
 
-以上图片及 `samples/` 中的照片均已压缩，仅供效果展示，点击可查看展示大图。默认模式为 `video`，以 JPEG 100% 质量、4:4:4 色度采样导出。
+以上图片及 `samples/` 中的照片均已压缩，仅供效果展示，点击可查看展示大图。默认模式为 `adaptive`，以 JPEG 100% 质量、4:4:4 色度采样导出；固定 4K 画布请指定 `--output-mode video`。
 
 ### original：保留照片原始尺寸
 
@@ -88,14 +90,14 @@ python3 layout.py --batch photo1.jpg photo2.jpg --output-mode adaptive
 ## 使用须知
 
 - 焦距优先显示 **35mm 等效焦距**，缺失时显示实际焦距；日期仅显示 EXIF 拍摄时间，精确到秒，不显示小数秒和时区；拍摄时间缺失或无效时不显示日期。
-- GPS 地点查询默认开启，有坐标时会发送经纬度给 Nominatim 查询地名。可用 `--include-gps-location false` 关闭；`--preserve-gps true` 单独控制单图成片中的 GPS 字段，GPS 字段保留默认关闭。
+- GPS 地点查询默认开启，有坐标时会发送经纬度给 Nominatim 查询地名。成功地点查询会在本机缓存 30 天，缓存设置及清理方式见 [使用指南](docs/usage.md#缓存与运行速度)。可用 `--include-gps-location false` 关闭地点查询；`--preserve-gps true` 单独控制单图成片中的 GPS 字段，GPS 字段保留默认关闭。
 - 仅处理 SDR 图片，不支持 RAW 和 TIFF；请先在照片编辑软件中转换为 SDR PNG 或 JPEG。默认保留来源 RGB 色域，混合 SDR 色域使用 ProPhoto RGB；广色域成片需用支持 ICC 的软件查看，分享可选 `--color-mode srgb`。
 - 默认保留筛选后的拍摄参数、作者、版权和单图 DPI，重建尺寸及方向，移除旧缩略图、MakerNote、设备序列号；可用 `--metadata none` 删除非色彩元数据。详细策略见 [使用指南](docs/usage.md#色彩与元数据)。
 - JPEG 100% 仍为有损编码；PNG 无损编码不代表缩放或色彩转换没有损失。大尺寸、多图合成会占用较多内存。
 
 ## 支持与反馈
 
-安装、Finder 配置及常见问题见 [使用指南](docs/usage.md)，更换签名和 Logo 见 [定制说明](docs/customization.md)。遇到问题可提交 [GitHub Issue](https://github.com/chilemay-0417/watermark-tool/issues)，附上系统、Python 版本、运行命令或操作步骤，以及完整报错。
+安装、Finder 配置及常见问题见 [使用指南](docs/usage.md)，更换签名和 Logo 见 [定制说明](docs/customization.md)，代码结构、验证与性能测量见 [开发说明](docs/development.md)。遇到问题可提交 [GitHub Issue](https://github.com/chilemay-0417/watermark-tool/issues)，附上系统、Python 版本、运行命令或操作步骤，以及完整报错。
 
 ## 许可
 

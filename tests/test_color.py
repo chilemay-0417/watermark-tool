@@ -15,7 +15,8 @@ from watermark_tool.drawing import (
     open_image_correct_orientation,
     save_best_quality_image,
 )
-from watermark_tool.renderer import make_canvas, open_logo_image
+from watermark_tool.renderer import make_canvas
+from watermark_tool.assets import open_logo_image
 
 
 def p3_profile():

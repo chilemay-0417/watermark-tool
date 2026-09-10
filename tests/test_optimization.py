@@ -23,7 +23,8 @@ from watermark_tool.config import LayoutConfig
 from watermark_tool.metadata import read_source_metadata, collect_metadata
 from watermark_tool.preserved import png_chunk
 from watermark_tool.raster import ColorSpec, inspect_raster, read_raster
-from watermark_tool.renderer import make_canvas, prepare_logo_image
+from watermark_tool.renderer import make_canvas
+from watermark_tool.assets import prepare_logo_image
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -99,7 +100,7 @@ class OptimizationTests(unittest.TestCase):
         expected = np.asarray(first).copy()
         first.paste((0, 0, 0, 0), (0, 0, first.width, first.height))
         asset_cache._MEMORY.clear()
-        with patch('watermark_tool.renderer.open_logo_image', side_effect=AssertionError('decode')):
+        with patch('watermark_tool.assets.open_logo_image', side_effect=AssertionError('decode')):
             second = prepare_logo_image(path)
         np.testing.assert_array_equal(second, expected)
 
@@ -231,6 +232,7 @@ class OptimizationTests(unittest.TestCase):
 
 class LocationBudgetTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict(os.environ, WATERMARK_GPS_CACHE_DIR='off'))
         self.enterContext(patch.object(exif_gps, 'LOCATION_CACHE', {}))
         self.enterContext(suppress_watermark_logs())
         self.result = {'address': {'city': '上海市', 'state': '上海'}, 'display_name': ''}

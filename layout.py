@@ -26,6 +26,10 @@ from watermark_tool.cli import (  # noqa: E402
 from watermark_tool.config import *  # noqa: F401,F403,E402
 from watermark_tool.drawing import *  # noqa: F401,F403,E402
 from watermark_tool.exif_gps import *  # noqa: F401,F403,E402
+from watermark_tool.brands import *  # noqa: F401,F403,E402
+from watermark_tool.assets import *  # noqa: F401,F403,E402
+from watermark_tool.layout import *  # noqa: F401,F403,E402
+from watermark_tool.annotations import *  # noqa: F401,F403,E402
 from watermark_tool.renderer import *  # noqa: F401,F403,E402
 from watermark_tool.utils import warn  # noqa: F401,E402
 

@@ -1,0 +1,61 @@
+{
+  "date": "2026-09-10",
+  "environment": {
+    "platform": "macOS-14.8.9-arm64-arm-64bit-Mach-O",
+    "python": "3.14.2",
+    "numpy": "2.4.0",
+    "pillow": "12.2.0"
+  },
+  "baseline": "Pre-optimization local source snapshot, including existing uncommitted refactor",
+  "settings": {
+    "color_mode": "preserve",
+    "output_mode": "original",
+    "include_gps_location": false,
+    "jpeg_quality": 100,
+    "png_compression": "balanced"
+  },
+  "fixtures": {
+    "p3": "6000x4000 RGB gradient: R horizontal 0..255, G vertical 0..255, B=127; tests.test_color.p3_profile; input JPEG quality 97",
+    "rgba16": "Two copies of a 3000x2000 RGBA uint16 image; numpy default_rng(1), integers [0, 65536); sRGB PNG input"
+  },
+  "measurements": {
+    "before-p3": {
+      "first_call_seconds": 7.407618415978504,
+      "repeat_seconds": [
+        7.447684167011175,
+        7.43836862500757
+      ],
+      "repeat_median_seconds": 7.4430263960093725,
+      "output_bytes": 2677305,
+      "process_peak_rss_mib": 617.453125
+    },
+    "after-p3": {
+      "first_call_seconds": 0.3882262920087669,
+      "repeat_seconds": [
+        0.37415216700173914,
+        0.3799478330183774
+      ],
+      "repeat_median_seconds": 0.3770500000100583,
+      "output_bytes": 2677305,
+      "process_peak_rss_mib": 503.375
+    },
+    "before-rgba16": {
+      "first_call_seconds": 4.325695749983424,
+      "repeat_seconds": [
+        4.306603375007398
+      ],
+      "repeat_median_seconds": 4.306603375007398,
+      "output_bytes": 48745828,
+      "process_peak_rss_mib": 561.578125
+    },
+    "after-rgba16": {
+      "first_call_seconds": 1.9945758339890745,
+      "repeat_seconds": [
+        1.9842900829971768
+      ],
+      "repeat_median_seconds": 1.9842900829971768,
+      "output_bytes": 48745828,
+      "process_peak_rss_mib": 326.453125
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 [返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志与升级说明](../CHANGELOG.md)
 
-本文适用于 **2.0.0**。首次安装见 [README](../README.md#安装与使用)；从 1.1.0 升级见 [升级步骤](../CHANGELOG.md#从-110-升级)。以下命令均在项目目录中运行，并先执行 `source .venv/bin/activate`。需要使用项目记录的依赖版本时，可将 `requirements.txt` 换成 `requirements.lock`。
+本文适用于 **2.1.0**。首次安装见 [README](../README.md#安装与使用)；从 2.0.0 升级见 [升级步骤](../CHANGELOG.md#从-200-升级)，更早版本见对应的历史更新日志。以下命令均在项目目录中运行，并先执行 `source .venv/bin/activate`。需要使用项目记录的依赖版本时，可将 `requirements.txt` 换成 `requirements.lock`。
 
 ## 在 Finder 中右键使用
 
@@ -46,7 +46,7 @@ chmod +x watermark_batch_each.sh watermark_combine_selected.sh
 "/完整路径/watermark_tool/watermark_combine_selected.sh" "$@"
 ```
 
-替换为同一项目的完整路径，保存为「合成水印照片」。这个操作将所选照片合成一张；默认 `video` 最多支持 3 张，`adaptive` 和 `original` 不设张数上限。
+替换为同一项目的完整路径，保存为「合成水印照片」。这个操作将所选照片合成一张；输出模式遵循 `config.py` 的设置，`video` 最多支持 3 张，`adaptive` 和 `original` 不设张数上限。
 
 ### 4. 从右键菜单运行
 
@@ -98,6 +98,9 @@ python3 layout.py photo1.jpg photo2.jpg photo3.jpg --output-mode adaptive
 # 保留原始尺寸并导出 PNG
 python3 layout.py photo.png --output-mode original -o output.png
 
+# 快速无损 PNG；更看重体积时改为 small
+python3 layout.py photo.png --output-mode original --png-compression fast -o output.png
+
 # 逐张批量导出，关闭地点联网查询
 python3 layout.py --batch photo1.jpg photo2.jpg --output-mode original --include-gps-location false
 
@@ -111,9 +114,10 @@ python3 layout.py photo.jpg --show-signature false --signature-text "Shot by You
 
 | 参数 | 用途 | 默认值 |
 | --- | --- | --- |
-| `--output-mode` | `video` 固定 4K；`adaptive` 调整宽度；`original` 保留原尺寸 | `video` |
+| `--output-mode` | `video` 固定 4K；`adaptive` 调整宽度；`original` 保留原尺寸 | `adaptive`，跟随 `config.py` 的 `OUTPUT_MODE` |
 | `--height` | 照片高度（像素）；不影响 original | `1850` |
 | `--jpeg-quality` | JPEG 质量 1～100；不影响 PNG | `100` |
+| `--png-compression` | PNG 无损压缩：`fast` 快速、`balanced` 均衡、`small` 较小文件；不影响 JPEG | `balanced` |
 | `--include-gps-location` | 是否发送经纬度联网查询地点 | `true` |
 | `--color-mode` | `preserve` 保留来源色域；`srgb` 转为 8 位 SDR sRGB | `preserve` |
 | `--metadata` | `safe` 保留筛选后的元数据；`none` 删除非色彩元数据 | `safe` |
@@ -152,6 +156,7 @@ python3 layout.py photo.jpg --show-signature false --signature-text "Shot by You
 - **保真范围**：相同 RGB 定义、无缩放的 PNG 照片区域可保留解码后的原始 RGB 样本；缩放、混合色域转换仍会改变像素。未标记色域的 RGB / 灰度按 sRGB 解释。
 - **不支持的输入**：检测到 HDR、损坏或不匹配的 ICC、不支持的色彩标记时会报错。带有效 ICC 的 CMYK / Lab 图片可用 `--color-mode srgb` 转换。
 - **单图元数据**：默认保留筛选后的拍摄参数、作者、版权、DPI，以及 XMP / IPTC 中的标题、描述、关键词和评级等；重建尺寸及方向，移除旧缩略图、MakerNote 和设备序列号。
+- **损坏字段**：某个 EXIF 子 IFD 无法解析时会发出警告并跳过该部分，其他可读取的相机和拍摄字段继续使用。
 - **多图元数据**：仅保留共同的作者、版权及筛选后的共同 XMP，不指定单一相机、日期或位置。`--metadata none` 删除非色彩元数据，仍保留正确显示所需的色彩配置。
 
 GPS 地点查询默认开启：有坐标时会将经纬度发送给 Nominatim（OpenStreetMap）查询地名，照片文件在本地处理。`--include-gps-location false` 关闭联网；`--preserve-gps true` 控制 safe 模式下单图 EXIF GPS 的导出，两者独立。元数据开关不会隐藏已绘制到图片上的文字。
@@ -178,20 +183,31 @@ python3 layout.py photo.jpg --metadata none --include-gps-location false
 
 ## 缓存与运行速度
 
-macOS 素材缓存位于 `~/Library/Caches/watermark-tool/assets`，只保存处理后的位图 Logo 和签名，不保存照片或 GPS 坐标。更换素材后自动重新生成；可删除该目录清理缓存，下次运行会重建。GPS 查询结果仅在当前进程内复用。
+macOS 素材缓存位于 `~/Library/Caches/watermark-tool/assets`，只保存处理后的位图 Logo 和签名，不保存照片或地点数据。更换素材后自动重新生成；可删除该目录清理缓存，下次运行会重建。GPS 成功查询结果另存于 `~/Library/Caches/watermark-tool/gps/locations.sqlite3`，有效期 30 天，最多保留 2048 条，跨进程及 Finder 再次运行可复用。地点缓存保存地名、有效期和经纬度（四舍五入到 5 位小数）与语言组成的键的哈希，不保存照片；哈希不等于加密。删除 `gps` 目录即可清理磁盘地点缓存，已运行进程的内存缓存会在退出后清除。查询失败或空结果不写入磁盘，仅在当前进程内暂存 60 秒。缓存不可写或损坏时仍可继续查询和导出。
 
 ```bash
 # 指定缓存目录，或关闭磁盘缓存
 WATERMARK_CACHE_DIR=/path/to/cache python3 layout.py photo.jpg
 WATERMARK_CACHE_DIR=off python3 layout.py photo.jpg
 
+# 单独关闭 GPS 磁盘缓存（仍允许联网）；也可指定专用目录
+WATERMARK_GPS_CACHE_DIR=off python3 layout.py photo.jpg
+
 # 测量本机首次及后续处理耗时，结果保存到指定目录
 python3 scripts/benchmark_render.py --output-dir output/benchmark --iterations 3
 ```
 
+`WATERMARK_CACHE_DIR` 指定素材缓存目录时，GPS 默认位于该目录的 `gps` 子目录；`WATERMARK_GPS_CACHE_DIR` 可单独指定地点目录。`WATERMARK_CACHE_DIR=off` 同时关闭两类磁盘缓存。关闭地点联网查询仍使用 `--include-gps-location false`，该开关也会跳过地点缓存读取。
+
+PNG 三种压缩设置均为无损，解码后的像素、位深、透明度和元数据一致。默认 `balanced` 沿用压缩等级 6，`fast` 使用等级 1，`small` 使用等级 9；体积差异取决于图片内容，不保证每张图都有明显缩小。JPEG 不受此参数影响。
+
+命令行实时显示“正在准备第几张”“正在查询地点”“正在处理第几张”和“正在保存”，批量模式另显示总张数进度。`--quiet` 隐藏这些正常进度及摘要。Finder 脚本默认以 macOS 通知显示阶段提示（最多每 2 秒一次），完整进度同时写入运行日志；较快的阶段可能被合并，通知显示还取决于系统通知权限和专注模式。可在 Automator 调用脚本前设置 `export WATERMARK_FINDER_PROGRESS=0` 关闭阶段通知，原有完成/失败提示保持可用。
+
 ## 支持与开发
 
 遇到问题可提交 [GitHub Issue](https://github.com/chilemay-0417/watermark-tool/issues)，附上系统和 Python 版本、输入格式、复现步骤及完整报错；Finder 失败时会自动打开错误日志。
+
+内部模块职责、辅助函数导入迁移及重构验证记录见 [开发说明](development.md)。项目路径保持不变时，升级后无需重新配置 Finder 快速操作。
 
 开发检查：
 

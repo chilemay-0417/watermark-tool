@@ -1,7 +1,5 @@
 from pathlib import Path
 from functools import lru_cache
-import os
-import tempfile
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -10,7 +8,8 @@ from .color import (
     normalize_image,
     open_heif_srgb,
 )
-from .utils import info, warn
+from .config import PNG_COMPRESSION_LEVELS
+from .utils import atomic_output_path, info, warn
 
 
 HEIC_SUFFIXES = {".heic", ".heif", ".hif"}
@@ -162,8 +161,10 @@ def open_image_correct_orientation(path, mode="RGB", background=(255, 255, 255))
         return normalize_image(img, mode, background)
 
 
-def get_oriented_image_size(path):
-    """只读取图片尺寸与方向；不接受 RAW 或 TIFF。"""
+def read_image_header(path):
+    """Read oriented dimensions and a metadata snapshot without decoding pixels."""
+    from .metadata import read_source_metadata
+
     path = Path(path)
     reject_tiff_input(path)
     if path.suffix.lower() in RAW_SUFFIXES:
@@ -173,14 +174,15 @@ def get_oriented_image_size(path):
     with Image.open(path) as img:
         reject_tiff_input(path, img.format)
         width, height = img.size
-        if img.format == "PNG":
-            from .metadata import read_source_metadata
-            orientation = read_source_metadata(path, img)[0].get(274)
-        else:
-            orientation = img.getexif().get(274)
-        if orientation in (5, 6, 7, 8):
-            return height, width
-        return width, height
+        source = read_source_metadata(path, img)
+        if source[0].get(274) in (5, 6, 7, 8):
+            width, height = height, width
+        return (width, height), source
+
+
+def get_oriented_image_size(path):
+    """只读取旋正后尺寸；尺寸和元数据共享同一读取入口。"""
+    return read_image_header(path)[0]
 
 
 @lru_cache(maxsize=64)
@@ -276,24 +278,6 @@ def get_text_size(draw, text, font):
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
-def get_text_size_with_tracking(draw, text, font, tracking):
-    if not text:
-        return 0, 0
-
-    total_w = 0
-    max_h = 0
-
-    for i, char in enumerate(text):
-        char_w, char_h = get_text_size(draw, char, font)
-        total_w += char_w
-        max_h = max(max_h, char_h)
-
-        if i != len(text) - 1:
-            total_w += tracking
-
-    return total_w, max_h
-
-
 def draw_text_with_tracking(draw, position, text, font, fill, tracking=1):
     x, y = position
 
@@ -354,15 +338,9 @@ def make_rotated_text_image(text, font, fill, tracking):
         (255, 255, 255, 0),
     )
     text_draw = ImageDraw.Draw(text_img)
-    current_x = padding - min_x
-    text_y = padding - min_y
-
-    for i, char in enumerate(text):
-        text_draw.text((current_x, text_y), char, fill=fill, font=font)
-        char_w, _ = get_text_size(text_draw, char, font)
-
-        if i != len(text) - 1:
-            current_x += char_w + tracking
+    draw_text_with_tracking(
+        text_draw, (padding - min_x, padding - min_y), text, font, fill, tracking,
+    )
 
     rotated = text_img.rotate(90, expand=True)
     bbox = rotated.getbbox()
@@ -391,15 +369,8 @@ def make_centered_text_mark_image(text, font, fill, tracking, mark_height):
     mark_height = max(1, int(mark_height))
     mark_img = Image.new("RGBA", (text_w, mark_height), (255, 255, 255, 0))
     mark_draw = ImageDraw.Draw(mark_img)
-    current_x = -min_x
     text_y = round((mark_height - text_h) / 2 - min_y)
-
-    for i, char in enumerate(text):
-        mark_draw.text((current_x, text_y), char, fill=fill, font=font)
-        char_w, _ = get_text_size(mark_draw, char, font)
-
-        if i != len(text) - 1:
-            current_x += char_w + tracking
+    draw_text_with_tracking(mark_draw, (-min_x, text_y), text, font, fill, tracking)
 
     return mark_img.rotate(90, expand=True)
 
@@ -489,16 +460,12 @@ def save_best_quality_jpeg(img, output_path, quality=100, *, metadata=None):
     )
 
 
-def save_best_quality_image(img, output_path, jpeg_quality=100, *, metadata=None):
+def save_best_quality_image(
+    img, output_path, jpeg_quality=100, *, metadata=None, png_compression="balanced",
+):
     """先完整编码到同目录临时文件，成功后原子替换，失败不破坏已有输出。"""
     output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        prefix=".watermark-", suffix=output_path.suffix,
-        dir=output_path.parent, delete=False,
-    ) as temp_file:
-        temp_path = Path(temp_file.name)
-    try:
+    with atomic_output_path(output_path) as temp_path:
         if output_path.suffix.lower() == ".png":
             prepared = img if img.mode == "RGB" and img.info == {"icc_profile": SRGB_ICC} else (
                 normalize_image(img)
@@ -510,11 +477,10 @@ def save_best_quality_image(img, output_path, jpeg_quality=100, *, metadata=None
                 chunks = PngInfo()
                 chunks.add_itxt("XML:com.adobe.xmp", xmp.decode("utf-8"))
                 options["pnginfo"] = chunks
-            prepared.save(temp_path, format="PNG", compress_level=6, icc_profile=SRGB_ICC,
-                          **options)
+            prepared.save(
+                temp_path, format="PNG", compress_level=PNG_COMPRESSION_LEVELS[png_compression],
+                icc_profile=SRGB_ICC, **options,
+            )
         else:
             save_best_quality_jpeg(img, temp_path, quality=jpeg_quality,
                                    **({"metadata": metadata} if metadata is not None else {}))
-        os.replace(temp_path, output_path)
-    finally:
-        temp_path.unlink(missing_ok=True)

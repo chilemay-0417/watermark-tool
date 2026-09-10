@@ -12,20 +12,21 @@ from watermark_tool.cli import make_default_output_path
 from watermark_tool.config import (
     CANVAS_H,
     CANVAS_W,
-    RIGHT_GAP,
     LayoutConfig,
     PhotoMetadata,
     PhotoWatermark,
     WatermarkAssets,
 )
-from watermark_tool.renderer import (
+from watermark_tool.layout import (
     calculate_layout_metrics,
     get_annotation_extents,
-    load_photo_items,
-    make_canvas,
-    draw_photo_item,
     validate_layout_params,
 )
+from watermark_tool.renderer import (
+    load_photo_items,
+    make_canvas,
+)
+from watermark_tool.annotations import draw_photo_item
 
 
 def make_items(sizes, text_widths=None, location_widths=None):
@@ -50,8 +51,7 @@ def make_assets(widths):
         for width in widths
     ]
     return WatermarkAssets(
-        signature=None, logo=None, logo_name=None, max_width=max(widths),
-        reserved_right_width=RIGHT_GAP + widths[-1] if widths[-1] else 0,
+        signature=None, logo=None, logo_name=None,
         photo_marks=marks,
     )
 
@@ -302,7 +302,7 @@ class SpacingRenderingTests(unittest.TestCase):
             with (
                 patch("watermark_tool.renderer.read_photo_metadata", return_value=metadata),
                 patch(
-                    "watermark_tool.renderer.draw_photo_item", wraps=draw_photo_item,
+                    "watermark_tool.annotations.draw_photo_item", wraps=draw_photo_item,
                 ) as draw_photo,
                 suppress_watermark_logs(),
             ):
