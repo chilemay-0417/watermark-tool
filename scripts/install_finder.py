@@ -202,7 +202,7 @@ def uninstall_workflows(services, backups):
 
 
 def ensure_environment(project):
-    """Reuse/create a project venv; install requirements before touching Finder actions."""
+    """Reuse a project venv or Conda prefix; default to creating a venv."""
     python = project / '.venv/bin/python'
     if not python.exists():
         if (project / '.venv').exists():
@@ -212,9 +212,10 @@ def ensure_environment(project):
     subprocess.run([str(python), '-c',
                     'import sys; from pathlib import Path; '
                     'assert sys.version_info >= (3, 10), "需要 Python 3.10+"; '
-                    'assert sys.prefix != sys.base_prefix and '
+                    'assert (sys.prefix != sys.base_prefix or '
+                    '(Path(sys.prefix) / "conda-meta").is_dir()) and '
                     'Path(sys.prefix).resolve() == Path(sys.argv[1]).resolve(), '
-                    '".venv 无效，请将其改名备份后重新安装"', str(project / '.venv')],
+                    '"项目运行环境无效，请将 .venv 改名备份后重新安装"', str(project / '.venv')],
                    check=True)
     print('正在检查并安装依赖（首次安装需要联网）…', flush=True)
     subprocess.run([str(python), '-m', 'pip', 'install', '--disable-pip-version-check',

@@ -207,6 +207,38 @@ class FinderInstallTests(unittest.TestCase):
             installer.main([])
         install.assert_not_called()
 
+    def test_environment_validation_reuses_project_venv(self):
+        environment = self.project / '.venv'
+        subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(environment)],
+                       check=True, capture_output=True)
+        original_run = subprocess.run
+
+        def run(command, **kwargs):
+            # Keep the real interpreter/prefix check; avoid installing dependencies in a unit test.
+            if command[1:3] == ['-m', 'pip'] or 'import watermark_tool' in command[-1]:
+                return subprocess.CompletedProcess(command, 0)
+            return original_run(command, **kwargs)
+
+        with patch.object(installer.subprocess, 'run', side_effect=run) as calls:
+            installer.ensure_environment(self.project)
+        self.assertEqual(calls.call_count, 3)
+        self.assertTrue((environment / 'pyvenv.cfg').is_file())
+
+    def test_conda_marker_does_not_allow_an_unrelated_python(self):
+        environment = self.project / '.venv'
+        (environment / 'bin').mkdir(parents=True)
+        (environment / 'conda-meta').mkdir()
+        (environment / 'bin/python').symlink_to(Path(sys.executable).resolve())
+        original_run = subprocess.run
+
+        def run(command, **kwargs):
+            return original_run(command, **kwargs, capture_output=True)
+
+        with (patch.object(installer.subprocess, 'run', side_effect=run) as calls,
+              self.assertRaises(subprocess.CalledProcessError)):
+            installer.ensure_environment(self.project)
+        self.assertEqual(calls.call_count, 1)  # Rejected before pip or service changes.
+
     def test_uninstall_does_not_need_image_dependencies(self):
         with (patch.object(installer.sys, 'platform', 'darwin'),
               patch.object(installer, 'ensure_environment') as setup,

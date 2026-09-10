@@ -2,39 +2,48 @@
 
 [返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志与升级说明](../CHANGELOG.md)
 
-本文适用于 **2.2.1**。快速上手见 [README](../README.md#安装与使用)，从旧版升级见 [升级步骤](../CHANGELOG.md#升级到-221)。
+本文适用于 **2.2.2**。快速上手见 [README](../README.md#安装与使用)，从旧版升级见 [升级步骤](../CHANGELOG.md#升级到-222)。
 
 ## 在 Finder 中右键使用
 
 ### 首次使用：准备 Mac 环境
 
-普通用户只需准备一次基础组件，之后由安装器自动配置。**不用学习 Python，不用手动创建或激活虚拟环境，也不用自己运行 pip。** 如果两个右键操作已经能正常使用，可跳过本节；已有 Python 和 Cairo 环境时，直接执行第 3 步。
+可选 **pip** 或 **Conda**，不用同时安装；已经能正常使用右键操作时无需重配。pip 方案适合已有 Python 和 Cairo 的电脑；不想安装 Homebrew、又没有 Cairo 时，选 Conda。两种方案都由安装器配置右键入口，日常无需激活环境。
 
-以下以 macOS 14 及更新版本为例；旧系统请先核对 [Homebrew 的支持要求](https://docs.brew.sh/Installation#macos-requirements)。全程需要联网。
+#### 方案一：Python + pip
 
-**1. 打开终端，安装 Homebrew**
+1. 从 [Python 官网](https://www.python.org/downloads/macos/) 下载标准 macOS `.pkg` 安装包（Python 3.10+），双击安装；按安装完成提示运行「Install Certificates.command」。已有可用 Python 时可跳过。步骤见 [Python 官方说明](https://docs.python.org/3/using/mac.html)。
+2. 下载并解压完整项目，放到「图片」等固定位置。
+3. 双击 **[右键操作安装.command](../右键操作安装.command)**。安装器自动创建专用环境，并用 pip 安装 `requirements.txt` 中的依赖，无需手动输入虚拟环境命令。
 
-按 `Command + 空格`，搜索「终端」并打开。复制下面整行，粘贴后按回车；这条命令来自 [Homebrew 官网](https://brew.sh/)。已有 Homebrew 时跳到第 2 步。
+**pip 可以装 CairoSVG，但不负责安装它需要的 Cairo 原生库。** 若安装器提示找不到 `cairo`、`libcairo` 或 `libffi`，可改用下方 Conda 方案；单独重装 CairoSVG 不能补齐原生库。依赖说明见 [CairoSVG 文档](https://cairosvg.org/documentation/#installation)。
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-按提示输入 Mac 登录密码（输入时不显示字符是正常的）。如果提示安装 Command Line Tools，按提示完成即可，无需另行下载完整 Xcode。结束后执行终端里 **Next steps** 列出的配置命令，再运行 `brew --version`；出现版本号说明已就绪。
-
-**2. 安装水印工具所需的基础组件**
-
-在同一个终端中复制执行：
+熟悉终端、只想手动安装 Python 依赖时，在项目目录运行：
 
 ```bash
-brew install python cairo libffi
+python3 -m pip install -r requirements.txt
 ```
 
-Python 用来运行工具，Cairo / libffi 用来绘制 SVG Logo；其余图片处理组件由水印安装器自动下载。这里统一用 Homebrew 准备基础组件，无需再去 Python 官网单独安装。依赖依据见 [Python 安装项](https://formulae.brew.sh/formula/python@3.14) 和 [CairoSVG 安装说明](https://cairosvg.org/documentation/#installation)。
+这条命令只安装到当前 Python，不会注册右键操作。右键安装器使用自己的环境，仍需双击安装文件；普通用户直接用第 3 步即可。
 
-**3. 双击安装水印右键操作**
+#### 方案二：Conda（无需 Homebrew）
 
-下载并解压完整项目，将文件夹放入「图片」等固定位置，双击其中的 **[右键操作安装.command](../右键操作安装.command)**。等待显示「安装完成」，按回车关闭窗口。程序会自动建立自己的运行环境、安装其余依赖，并添加两个右键入口；以后处理照片直接使用 Finder 即可。
+此方案需要 **2.2.2 或更新版本**，旧版安装器不能直接复用 Conda 环境。
+
+1. 安装 [Miniforge](https://conda-forge.org/download/)；Mac 的 M 系列芯片选 **arm64**，Intel 选 **x86_64**。已有 Miniconda、Anaconda 或 Miniforge 时无需再装。下载 `.sh` 文件后，在终端输入 `bash `（末尾留一个空格），将下载的文件拖入终端，按回车并按提示安装；完成初始化后重新打开终端，运行 `conda --version` 确认可用。
+2. 下载并解压项目，放到固定位置。打开终端，输入 `cd `（末尾留一个空格），把项目文件夹拖入终端并按回车，然后复制执行：
+
+```bash
+conda create --prefix ./.venv --override-channels -c conda-forge python=3.14 pip cairo libffi cairosvg -y
+```
+
+3. 回到 Finder，双击 **[右键操作安装.command](../右键操作安装.command)**，等待「安装完成」。安装器复用刚才创建的 Conda 环境，用 pip 补齐其余图片依赖；两个右键操作直接调用该环境，无需每次执行 `conda activate`。
+
+这里的 `.venv` 只是工具约定的本地环境目录名，Conda 会在其中同时安装 Python 和 Cairo。若此目录已被之前的安装占用，先在 Finder 按 `Command + Shift + .` 显示隐藏文件，将 `.venv` 改名备份，再执行创建命令。不要在已有 venv 上叠装 Conda。
+
+Conda 支持使用项目路径创建环境，Cairo 由 conda-forge 提供。参见 [Conda 环境说明](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) 和 [Cairo 软件包](https://anaconda.org/conda-forge/cairo)。
+
+**已使用 Homebrew 的用户**也可沿用 `brew install python cairo libffi`，然后双击水印安装器，无需再装 Conda。
 
 ### 添加水印：单张处理或多张合成
 
@@ -61,7 +70,7 @@ Python 用来运行工具，Cairo / libffi 用来绘制 SVG Logo；其余图片�
 
 ### 升级、移动与旧入口迁移
 
-更新完整项目后，重新双击「右键操作安装.command」即可。项目移动或改名后，也应从新位置重新安装，让操作指向新的项目路径。
+更新完整项目后，重新双击「右键操作安装.command」即可。项目移动或改名后，也应从新位置重新安装，让操作指向新的项目路径。Conda 环境不应直接搬移：移动项目后先将 `.venv` 改名备份，再按 Conda 方案重新创建。
 
 升级后，「添加水印」多选会合成一张；逐张导出请改用「批量添加水印」。安装器会备份移除可识别的旧「照片加水印」「批量加水印」「合成水印照片」，保留两个新入口，重复安装不会生成重复项。
 
@@ -75,7 +84,7 @@ Python 用来运行工具，Cairo / libffi 用来绘制 SVG Logo；其余图片�
 
 ### 环境要求与排错
 
-工具需要 Python 3.10+ 和 Cairo / libffi。首次配置按上方 [Mac 环境准备](#首次使用准备-mac-环境) 操作；水印安装器会自动完成剩余配置，本身不需要管理员权限。
+工具需要 Python 3.10+ 和 Cairo / libffi。首次配置按上方 [pip 或 Conda 方案](#首次使用准备-mac-环境) 操作；水印安装器会自动完成剩余配置，本身不需要管理员权限。
 
 | 情况 | 处理方法 |
 | --- | --- |
@@ -83,7 +92,8 @@ Python 用来运行工具，Cairo / libffi 用来绘制 SVG Logo；其余图片�
 | 右键菜单中没有操作 | 确认已选中照片，关闭并重新打开右键菜单；在快速操作的「自定」或系统设置的 Finder 扩展中确认操作已启用，必要时重新登录。 |
 | 找不到脚本或项目移动了 | 确认保留完整项目文件夹，从实际项目位置重新双击安装器。 |
 | 找不到 Python，或缺少 Cairo / libffi | 按上方环境准备步骤安装基础组件，再双击水印安装器。 |
-| 提示 `brew: command not found` | 完成 Homebrew 安装末尾 Next steps 中的配置命令，再运行 `brew --version`。 |
+| 提示 `conda: command not found` | 完成 Miniforge 安装和终端初始化，重新打开终端后运行 `conda --version`。 |
+| pip 提示 `externally-managed-environment` | 直接双击水印安装器，让它使用专用环境；不要强行向受管理的系统 Python 安装。 |
 | 下载依赖失败 | 检查网络并重新双击安装器；验证失败时不会替换已有右键操作。 |
 | `.venv` 无效或不完整 | 将项目中的 `.venv` 文件夹改名备份后重新双击安装，安装器会创建新环境。 |
 | 提示没有收到照片 | 先在 Finder 中选中照片，再从右键菜单调用「添加水印」。 |
@@ -103,7 +113,7 @@ INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 
 ## 命令与参数
 
-本节仅供需要自定义导出参数的进阶用户阅读，日常右键使用可跳过。完成双击安装后，在终端进入项目目录并激活安装器已创建的环境，以下命令中的 `python3` 将使用项目依赖：
+本节仅供需要自定义导出参数的进阶用户阅读，日常右键使用可跳过。完成双击安装后，在终端进入项目目录。pip 默认环境可按下面方式激活；Conda 方案改用 `conda activate ./.venv`。以下命令中的 `python3` 将使用项目依赖：
 
 ```bash
 cd "/完整路径/watermark_tool"

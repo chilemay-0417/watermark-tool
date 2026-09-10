@@ -1,10 +1,10 @@
 # Watermark Tool
 
-**版本：2.2.1**
+**版本：2.2.2**
 
 为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名，支持单张处理、批量导出和多图拼接。可通过命令行使用，也可双击安装 macOS Finder 右键快速操作。
 
-[下载 2.2.1](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.1.zip) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [开发说明](docs/development.md) · [更新日志](CHANGELOG.md)
+[下载 2.2.2](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.2.zip) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [开发说明](docs/development.md) · [更新日志](CHANGELOG.md)
 
 ## 功能与效果
 
@@ -54,7 +54,7 @@
 
 ### macOS：双击安装右键操作
 
-普通用户无需手动创建或激活 Python 虚拟环境。首次使用先按 [Mac 环境准备](docs/usage.md#首次使用准备-mac-环境) 安装基础组件，再下载并解压项目，将完整文件夹放到「图片」等固定位置。
+首次使用可选 [Python + pip](docs/usage.md#方案一python--pip) 或 [Conda](docs/usage.md#方案二conda无需-homebrew)；Conda 可一起安装 Python 和 Cairo，无需 Homebrew。按指南准备好环境，将完整项目文件夹放到「图片」等固定位置，日常右键使用无需激活环境。
 
 1. 双击 **[右键操作安装.command](右键操作安装.command)**，安装器会准备项目环境和依赖。
 2. 等待终端显示“安装完成”，按回车关闭窗口。

@@ -2,7 +2,7 @@
 
 [使用指南](usage.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-本文适用于 **2.2.1**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
+本文适用于 **2.2.2**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
 
 ## 模块职责
 
@@ -87,7 +87,7 @@ zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_comm
 .venv/bin/python -m watermark_tool --help
 ```
 
-2.1.0 的历史渲染验证记录（2026-09-10，2.2.1 安装器验证见下节）：
+2.1.0 的历史渲染验证记录（2026-09-10，2.2.2 安装器验证见下节）：
 
 | 验证 | 结果与范围 |
 | --- | --- |
@@ -131,7 +131,9 @@ P3 输入是构造的渐变 JPEG，RGBA16 输入是固定随机种子的测试 P
 
 `右键操作安装.command` / `右键操作卸载.command` 共用 `scripts/finder_setup.zsh`，从显式指定的 Python、项目虚拟环境及常见安装路径中选择 Python 3.10+。忽略 macOS 的 `/usr/bin/python3` 开发工具引导程序，避免触发无关安装；不安装 Homebrew、不调用 sudo。
 
-`scripts/install_finder.py` 只依赖标准库。安装时先创建或验证项目 `.venv`，使用该虚拟环境安装 `requirements.txt` 并验证模块可导入（包括 CairoSVG 的原生 Cairo 库），成功后才修改工作流程。缺失的系统库给出排错指引，不自动修改系统软件。卸载直接处理工作流程，不导入图片处理依赖。
+`scripts/install_finder.py` 只依赖标准库。安装时先创建或验证项目 `.venv`，使用该环境安装 `requirements.txt` 并验证模块可导入（包括 CairoSVG 的原生 Cairo 库），成功后才修改工作流程。缺失的系统库给出排错指引，不自动修改系统软件。卸载直接处理工作流程，不导入图片处理依赖。
+
+`.venv` 可由默认 venv 或用户创建的 Conda 前缀提供。校验要求解释器的 `sys.prefix` 与项目环境目录一致，并且属于 venv 或含 `conda-meta` 的 Conda 环境；仅有目录标记不能让外部 Python 通过。Conda 方案先安装 Python、Cairo 和 CairoSVG，再由 pip 补齐 `requirements.txt`，Finder 直接调用该环境的解释器，不依赖终端激活状态。移动 Conda 项目需重建环境，详见 [使用指南](usage.md#方案二conda无需-homebrew)。
 
 生成的 `.workflow` 使用 Automator 的 `Run Shell Script` 动作，接收 Finder 的 `public.image` 路径参数。`plistlib` 生成 XML，`shlex.quote()` 转义项目路径，两个入口复用现有图片处理脚本：
 
@@ -154,6 +156,12 @@ zsh -n 右键操作安装.command 右键操作卸载.command scripts/finder_setu
 ```
 
 系统通知、文件访问和下载脚本的打开权限由 macOS 管理，安装器不绕过或自动授予权限。Automator 快速操作与 Finder 的集成说明见 [Apple 使用手册](https://support.apple.com/guide/automator/create-workflows-aut7cac58839/mac)。
+
+### 2.2.2 发布验证
+
+macOS 14.8.9 / Python 3.14.2 下 159 项自动测试通过；新增默认 venv 复用和外部解释器拒绝检查。Ruff、Shell 语法、CLI 帮助入口及文档链接检查通过。
+
+另用 Micromamba 在临时项目中创建 conda-forge 环境（Python 3.14.7），执行安装器依赖准备并验证 SVG、单张、批量和合成导出。验证时未激活 Conda，PATH 不含 Homebrew，禁用用户 Python 包；通过动态库路径确认加载的是环境内的 Cairo。验证平台为 Apple Silicon，Intel Mac 未实机复测。
 
 ### 2.2.1 发布验证
 
