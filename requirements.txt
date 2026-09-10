@@ -1,5 +1,4 @@
 Pillow>=12.2,<13.0
-CairoSVG>=2.7,<3.0
 pillow-heif>=1.0,<2.0
 numpy>=1.26,<3.0
 pyspng>=0.1.4,<0.2

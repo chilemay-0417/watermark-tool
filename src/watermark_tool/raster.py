@@ -509,7 +509,8 @@ def srgb_to_color(values, color):
             return values
         return transform_icc(values, SRGB_ICC, color.icc)
     linear = decode_transfer(values, 13)
-    rgb = linear @ (np.linalg.inv(color.matrix) @ RGB_TO_XYZ["srgb"]).T
+    transform = np.linalg.inv(color.matrix) @ RGB_TO_XYZ["srgb"]
+    rgb = (linear.reshape(-1, 3) @ transform.T).reshape(linear.shape)
     rgb = np.maximum(rgb, 0)
     t = color.transfer
     require_sdr_transfer(t)

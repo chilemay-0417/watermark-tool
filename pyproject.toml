@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "watermark-tool"
-version = "2.2.2"
+version = "2.2.3"
 description = "Photo watermark layout tool for Finder quick actions and CLI use."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,11 +12,11 @@ dependencies = [
   "numpy>=1.26,<3.0",
   "pyspng>=0.1.4,<0.2",
   "Pillow>=12.2,<13.0",
-  "CairoSVG>=2.7,<3.0",
   "pillow-heif>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
+svg = ["CairoSVG>=2.7,<3.0"]
 dev = [
   "pypng==0.20220715.0",
   "ruff>=0.8,<1.0",

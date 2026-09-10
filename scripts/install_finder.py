@@ -223,12 +223,12 @@ def ensure_environment(project):
     try:
         subprocess.run([str(python), '-c',
                         'import sys; sys.path.insert(0, "src"); '
-                        'import watermark_tool, cairosvg, pillow_heif, pyspng'],
+                        'import watermark_tool, pillow_heif, pyspng'],
                        cwd=project, check=True)
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             '依赖验证失败，尚未修改右键操作。请查看上方错误；'
-            '若提示缺少 Cairo/libffi，请按 docs/usage.md 的环境排错说明安装后重试。'
+            '请按 docs/usage.md 的环境排错说明处理后重试。'
         ) from exc
 
 

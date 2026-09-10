@@ -2,7 +2,7 @@
 
 [使用指南](usage.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-本文适用于 **2.2.2**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
+本文适用于 **2.2.3**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
 
 ## 模块职责
 
@@ -33,6 +33,14 @@
 布局计算完成后，sRGB 路径由 `_render_srgb_canvas()` 绘制和编码；保留色域路径由 `render_preserved_canvas()` 使用准备好的输入合成。两者调用 `annotations.py` 中的相同绘制函数，最后由入口统一输出摘要。
 
 布局和标记绘制的修改应放在共享模块中。`preserved.py` 不应导入 `renderer.py`，也不应重新准备字体、水印或布局。原尺寸布局的 `original_metrics()` 位于共享布局模块，不再依赖色彩后端。
+
+## Logo 与可选 SVG 依赖
+
+内置 Logo 已为 PNG，现有素材无需重新转换。新增矢量 Logo 应在维护阶段导出为透明 PNG（建议高度至少 400 像素），在 `assets/brands.json` 中引用 PNG；原 SVG 可作为源素材保留。运行时按 `LOGO_HEIGHT` 缩放，基础安装不依赖 Cairo。
+
+`pyproject.toml` 的基础依赖与 `requirements.txt` / `requirements.lock` 保持一致；CairoSVG 仅放在 `svg` extra 中。`assets.open_logo_image()` 只在读取 SVG 时导入 CairoSVG，导入失败或缺少原生库时给出安装指引；SVG 解析错误仍保留原始异常。安装命令见 [可选 SVG 支持](usage.md#自定义-svg可选)。
+
+macOS 上部分 NumPy wheel 的 Accelerate 批量矩阵运算会导致色彩转换崩溃。`render_rgb_array()` 和 `srgb_to_color()` 将 RGB 数组展平为二维后计算，再恢复形状；保留原有分块和色彩公式。
 
 ## 内部接口迁移
 
@@ -71,6 +79,8 @@
 地点缓存路径、禁用和清理方式见 [使用指南](usage.md#缓存与运行速度)。磁盘缓存会保留地名；坐标键哈希不是加密，不应将该数据库视为脱敏文件。默认缓存目录权限为 0700（创建时），数据库权限为 0600。
 
 ## 测试与验证
+
+2.2.3 验证（2026-09-10，macOS / Python 3.14.2）：现有环境 163 项测试通过，包含实际 SVG 渲染；不含 CairoSVG / cairocffi 的全新 pip 环境通过 162 项，另 1 项可选 SVG 渲染测试跳过。新环境使用 NumPy 2.5.3、Pillow 12.3.0、pillow-heif 1.7.0，基础安装、wheel 素材读取和单张 / 合成导出通过。24 组色彩转换逐像素一致，另 16 组目标色域数组量化结果一致；Ruff、Shell 语法和文档链接检查通过。
 
 回归测试包含跨块/小数字距及透明标志的逐像素对照、8/16 位 RGBA 原样复制、大画布及占位图分配防回归、两条后端 PNG 压缩档位的像素/元数据一致性、跨进程 GPS 缓存、TTL、容量、失败与不可写降级，以及通知参数传递与限频。GPS 测试使用临时目录及模拟响应，不向真实地理服务发出请求。
 
@@ -116,7 +126,7 @@ zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_comm
 
 ## 本机性能测量
 
-以下数据来自 2.1.0 渲染优化的测量，不是本次 Finder 更新新增的性能收益。
+以下为 2.1.0 渲染优化的历史测量。
 
 优化基线是 2026-09-10 完成内部重构、尚未实施五项性能优化时的本地源码快照；该快照包含当时未提交的改动，与 v2.0.0 标签源码不相同。前后使用相同输入、默认水印、保留色域、原尺寸、JPEG 100 / PNG balanced，关闭 GPS 查询。各场景在独立进程串行运行，首次调用单独记录，表内耗时为后续调用中位数；P3 场景测 2 次，RGBA16 拼接测 1 次，属于小样本性能检查。
 
@@ -131,9 +141,9 @@ P3 输入是构造的渐变 JPEG，RGBA16 输入是固定随机种子的测试 P
 
 `右键操作安装.command` / `右键操作卸载.command` 共用 `scripts/finder_setup.zsh`，从显式指定的 Python、项目虚拟环境及常见安装路径中选择 Python 3.10+。忽略 macOS 的 `/usr/bin/python3` 开发工具引导程序，避免触发无关安装；不安装 Homebrew、不调用 sudo。
 
-`scripts/install_finder.py` 只依赖标准库。安装时先创建或验证项目 `.venv`，使用该环境安装 `requirements.txt` 并验证模块可导入（包括 CairoSVG 的原生 Cairo 库），成功后才修改工作流程。缺失的系统库给出排错指引，不自动修改系统软件。卸载直接处理工作流程，不导入图片处理依赖。
+`scripts/install_finder.py` 只依赖标准库。安装时先创建或验证项目 `.venv`，使用该环境安装 `requirements.txt` 并验证基础模块可导入（不导入 CairoSVG），成功后才修改工作流程。验证失败时给出排错指引。卸载直接处理工作流程，不导入图片处理依赖。
 
-`.venv` 可由默认 venv 或用户创建的 Conda 前缀提供。校验要求解释器的 `sys.prefix` 与项目环境目录一致，并且属于 venv 或含 `conda-meta` 的 Conda 环境；仅有目录标记不能让外部 Python 通过。Conda 方案先安装 Python、Cairo 和 CairoSVG，再由 pip 补齐 `requirements.txt`，Finder 直接调用该环境的解释器，不依赖终端激活状态。移动 Conda 项目需重建环境，详见 [使用指南](usage.md#方案二conda无需-homebrew)。
+`.venv` 可由默认 venv 或用户创建的 Conda 前缀提供。校验要求解释器的 `sys.prefix` 与项目环境目录一致，并且属于 venv 或含 `conda-meta` 的 Conda 环境；仅有目录标记不能让外部 Python 通过。Conda 方案只需先准备 Python 和 pip，再由 pip 安装 `requirements.txt`，Finder 直接调用该环境的解释器，不依赖终端激活状态。移动 Conda 项目需重建环境，详见 [使用指南](usage.md#方案二conda无需-homebrew)。
 
 生成的 `.workflow` 使用 Automator 的 `Run Shell Script` 动作，接收 Finder 的 `public.image` 路径参数。`plistlib` 生成 XML，`shlex.quote()` 转义项目路径，两个入口复用现有图片处理脚本：
 
@@ -157,16 +167,14 @@ zsh -n 右键操作安装.command 右键操作卸载.command scripts/finder_setu
 
 系统通知、文件访问和下载脚本的打开权限由 macOS 管理，安装器不绕过或自动授予权限。Automator 快速操作与 Finder 的集成说明见 [Apple 使用手册](https://support.apple.com/guide/automator/create-workflows-aut7cac58839/mac)。
 
-### 2.2.2 发布验证
+### 历史发布验证
 
-macOS 14.8.9 / Python 3.14.2 下 159 项自动测试通过；新增默认 venv 复用和外部解释器拒绝检查。Ruff、Shell 语法、CLI 帮助入口及文档链接检查通过。
-
-另用 Micromamba 在临时项目中创建 conda-forge 环境（Python 3.14.7），执行安装器依赖准备并验证 SVG、单张、批量和合成导出。验证时未激活 Conda，PATH 不含 Homebrew，禁用用户 Python 包；通过动态库路径确认加载的是环境内的 Cairo。验证平台为 Apple Silicon，Intel Mac 未实机复测。
+2.2.2：macOS 14.8.9 / Python 3.14.2 下 159 项测试通过；另在独立 Conda 环境中验证 SVG、单张、批量和合成导出，PATH 不含 Homebrew。验证平台为 Apple Silicon，Intel Mac 未实机复测。
 
 ### 2.2.1 发布验证
 
-2026-09-10 在 macOS 14.8.9 / Python 3.14.2 上，157 项自动测试全部通过，其中 14 项覆盖安装器、3 项覆盖 Finder 脚本；包含三个功能的实际导出和原生 Automator 执行。Ruff、Shell 语法、两个 CLI 帮助入口、文档链接及差异空白检查通过。本机两个快速操作已安装并验证名称和脚本路径。菜单拖动排序依据系统使用说明，未纳入自动 UI 测试；其他系统版本未实机复测。
+157 项测试通过，覆盖三个功能的实际导出、原生 Automator 执行及安装迁移。菜单排序和系统通知的实际显示未纳入自动 UI 测试。
 
 安装器默认使用项目 `.venv`。开发或排错时可通过 `WATERMARK_PYTHON_BIN` 指定用于引导的 Python；该变量不代替安装器对项目虚拟环境的验证。Shell 入口支持 `WATERMARK_FINDER_PROGRESS=0` 关闭阶段通知：临时从终端调用时设置此环境变量，长期设置可调整 `watermark_batch_each.sh` 中同名变量的默认值，完成/失败提示仍保留。无需编辑 Automator 工作流程。
 
-发布时同步 `pyproject.toml`、README、使用指南、定制说明、开发说明和更新日志的当前版本。Git 标签及 GitHub Release 使用相同的 `vX.Y.Z`；中文 `.command` 入口必须以可执行权限保存到 Git，并在源码下载包中保留。
+未发布改动记入 CHANGELOG 的「未发布」；发布时更新 `pyproject.toml` 版本和更新日志，核对各文档与实际行为一致。README 只保留概况和基础用法，不列更新清单。Git 标签及 GitHub Release 使用相同的 `vX.Y.Z`；中文 `.command` 入口必须以可执行权限保存到 Git，并在源码下载包中保留。

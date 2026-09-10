@@ -99,7 +99,8 @@ def render_rgb_array(pixels, maximum, color_space="srgb", transfer=13):
     for start in range(0, pixels.shape[0], 128):
         encoded = pixels[start:start + 128, :, :3].astype(np.float64) / maximum
         linear = decode_transfer(np.clip(encoded, 0, 1), transfer)
-        rgb = linear @ transform.T
+        # Avoid batched matmul crashes with macOS Accelerate NumPy wheels.
+        rgb = (linear.reshape(-1, 3) @ transform.T).reshape(linear.shape)
         result[start:start + 128] = np.rint(encode_srgb(rgb) * 255).astype(np.uint8)
     return tag_srgb(Image.fromarray(result))
 

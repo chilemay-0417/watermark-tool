@@ -40,11 +40,11 @@ def open_logo_image(path):
     if path.suffix.lower() == ".svg":
         try:
             import cairosvg
-        except ImportError as exc:
+        except (ImportError, OSError) as exc:
             raise RuntimeError(
-                f"SVG logo 需要安装 CairoSVG 才能读取：{path}。"
-                '请运行 python3 -m pip install "CairoSVG>=2.7,<3.0"，'
-                "或把该 logo 导出为 PNG。"
+                f"无法加载 SVG 支持：{path}。请将 Logo 导出为透明 PNG，"
+                '或在项目目录用当前运行环境执行 python -m pip install ".[svg]"，'
+                "并安装 Cairo 原生库；详见 docs/usage.md 的「自定义 SVG（可选）」。"
             ) from exc
 
         png_bytes = cairosvg.svg2png(

@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image, ImageCms, PngImagePlugin
 
 from tests.test_layout import suppress_watermark_logs
-from watermark_tool.color import SRGB_ICC, normalize_image
+from watermark_tool.color import SRGB_ICC, normalize_image, render_rgb_array
 from watermark_tool.config import LayoutConfig, PhotoMetadata
 from watermark_tool.drawing import (
     get_oriented_image_size,
@@ -37,6 +37,11 @@ def p3_profile():
 
 
 class ColorManagementTests(unittest.TestCase):
+    def test_wide_rgb_strips_preserve_srgb_samples(self):
+        pixels = np.random.default_rng(41).integers(0, 256, (257, 3840, 3), dtype=np.uint8)
+        with render_rgb_array(pixels, 255) as image:
+            np.testing.assert_array_equal(np.asarray(image), pixels)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
