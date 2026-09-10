@@ -2,11 +2,17 @@
 
 [返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
 
+当前版本：**2.2.6**。[下载本版完整工具包](https://github.com/chilemay-0417/watermark-tool/releases/download/v2.2.6/watermark-tool-2.2.6.zip) · [查看发布说明](https://github.com/chilemay-0417/watermark-tool/releases/tag/v2.2.6)
+
 ## 安装与首次使用
 
 1. 下载并解压完整项目，放到「图片」等固定位置。
-2. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待“安装完成”，按回车关闭窗口。首次安装依赖需要联网。
-3. 在 Finder 中选中照片 → 右键 → **快速操作**，选择所需功能。
+2. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待安装完成。首次安装依赖需要联网；新装右键操作后会尝试打开系统设置。
+3. 首次使用时，在 Finder 选中一张照片 → 右键 → **快速操作 → 自定义（或“自定…”）**，勾选 **添加水印** 和 **批量添加水印**。如果菜单中已经有这两项，可直接使用。安装窗口按回车关闭。
+
+macOS 15（包括 15.7.7）及更新版本的设置入口为 **系统设置 → 通用 → 登录项与扩展 → Finder**，点按信息按钮后勾选两个操作；参见 [Apple 设置说明](https://support.apple.com/zh-cn/guide/mac-help/mtusr003/15.0/mac/15.0)。旧版 macOS 可通过快速操作的“自定义”进入对应设置。若自动打开设置失败，按上述步骤手动进入即可。
+
+安装工作流与在 Finder 中启用是两个步骤。重新安装时 macOS 可能保留此前的勾选状态，所以重装后直接显示并不代表首次安装也会自动启用。重复安装已有的两个入口时不会再次自动打开设置。
 
 一键安装仅支持 macOS，需要本机已有 **Python 3.10+ 和 pip**。安装器自动查找 Homebrew、官网安装版或 Conda / Miniconda / Miniforge 的 Python；Conda 无需先激活。没有 Python 或 pip 时会给出安装提示，不会自动安装 Python。
 
@@ -30,11 +36,15 @@
 
 - **升级**：备份自己的配置、签名、Logo 和品牌规则，更新完整项目并迁移个人设置，再双击安装文件。不要直接用旧 `config.py` 覆盖新配置。
 - **移动或改名**：在新位置重新双击「右键操作安装.command」，同时更新右键操作和终端命令的路径。保留完整项目文件夹。
-- **卸载右键操作**：双击 [右键操作卸载.command](../右键操作卸载.command)。终端命令、依赖、照片和项目保留。
-- **彻底移除工具**：先卸载右键操作，再删除 `~/.local/bin/watermark-tool`；如需清理 PATH，删除 zsh 配置中 `# watermark-tool command path` 及其紧随的设置行。备份个人素材后可删除项目（含 `.watermark-deps`）。
+- **卸载已安装的入口**：双击 [右键操作卸载.command](../右键操作卸载.command)，同时移除本工具的右键操作和 `~/.local/bin/watermark-tool` 终端命令。照片、个人素材、项目、项目依赖和已有 Python 环境保留。
+- **仅卸载右键操作**：在项目目录运行 `python3 scripts/install_finder.py --uninstall-finder-only`，保留终端命令。
+- **PATH 清理**：只删除本工具添加且未修改的标记及相邻 PATH 设置行；如果 `~/.local/bin` 中还有其他命令，则保留共用 PATH。用户修改过的命令、符号链接和配置保留并提示，不会恢复旧备份覆盖当前配置。
+- **彻底移除工具文件**：先按上面的步骤卸载入口，备份个人配置与素材后再删除项目（含 `.watermark-deps`）。历史备份和缓存可按需手动清理。
 - **菜单排序**：在快速操作的「自定…」中调整；顺序由 macOS 管理。
 
 重复安装不会增加重复入口。安装器会备份可识别的旧操作；卸载时恢复曾替换的原始同名操作，其他已迁移的旧入口不自动恢复。备份保存在 `~/Library/Application Support/watermark-tool/finder-backups`。
+
+卸载后若旧终端仍缓存命令位置，运行 `rehash` 或重新打开终端。若 `watermark-tool` 仍能执行，运行 `type -a watermark-tool` 检查是否存在另外安装的同名命令或别名；卸载器仅管理本工具生成的启动脚本。
 
 ## 安装排错
 

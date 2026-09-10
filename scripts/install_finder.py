@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime
 from pathlib import Path
+import platform
 import plistlib
 import shlex
 import shutil
@@ -16,7 +17,7 @@ from xml.parsers.expat import ExpatError
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 from scripts.install_runtime import (  # noqa: E402
-    ensure_dependencies, install_command, validate_command_target,
+    ensure_dependencies, install_command, uninstall_command, validate_command_target,
 )
 MANAGED_KEY = 'WatermarkToolManagedVersion'
 PREVIOUS_KEY = 'WatermarkToolPreviousWorkflow'
@@ -220,21 +221,66 @@ def refresh_services():
         print('操作已保存；菜单未刷新时请重新登录 macOS。', flush=True)
 
 
+def show_finder_setup(open_settings=False):
+    """Explain the separate Finder enablement step; opening settings is best-effort."""
+    print('\n首次使用：如果快速操作菜单中没有水印操作，请选中一张照片，', flush=True)
+    print('右键 → 快速操作 → 自定义（或“自定…”），勾选“添加水印”和“批量添加水印”。', flush=True)
+    print('若两项已经出现，可直接使用；重新安装时 macOS 可能保留之前的勾选状态。', flush=True)
+    version = platform.mac_ver()[0].split('.')[0]
+    modern_settings = version.isdigit() and int(version) >= 15
+    if modern_settings:
+        print('macOS 15 及更新版本：系统设置 → 通用 → 登录项与扩展 → Finder。', flush=True)
+    if not open_settings:
+        return
+    print('正在打开系统设置；请找到 Finder 扩展并勾选这两个操作。', flush=True)
+    pane = Path('/System/Library/PreferencePanes/Extensions.prefPane')
+    if modern_settings:
+        commands = [['/usr/bin/open',
+                     'x-apple.systempreferences:com.apple.LoginItems-Settings.extension']]
+    else:
+        commands = ([['/usr/bin/open', str(pane)]] if pane.exists() else [])
+    commands.append(['/usr/bin/open', '-b', 'com.apple.systempreferences'])
+    for command in commands:
+        try:
+            subprocess.run(command, check=True, timeout=10,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except (OSError, subprocess.SubprocessError):
+            continue
+    print('无法自动打开设置，请按上面的“快速操作 → 自定义”步骤启用。', flush=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument('--uninstall', action='store_true')
+    mode.add_argument('--uninstall', action='store_true', help='卸载右键操作和本工具的终端命令')
+    mode.add_argument('--uninstall-finder-only', action='store_true',
+                      help='仅卸载右键操作，保留终端命令')
     mode.add_argument('--cli-only', action='store_true', help='只安装终端命令')
     parser.add_argument('--svg', action='store_true', help='同时安装可选 SVG 支持')
+    parser.add_argument('--open-settings', action='store_true',
+                        help='新装右键操作后打开系统设置，引导首次启用')
     args = parser.parse_args(argv)
+    uninstall = args.uninstall or args.uninstall_finder_only
+    if args.open_settings and (uninstall or args.cli_only):
+        parser.error('--open-settings 仅用于安装右键操作。')
     if sys.platform != 'darwin':
         parser.error('Finder 快速操作安装器仅支持 macOS。')
     services = Path.home() / 'Library/Services'
     backups = Path.home() / 'Library/Application Support/watermark-tool/finder-backups'
-    if args.uninstall:
+    if uninstall:
         paths = uninstall_workflows(services, backups)
         print(f'已卸载 {len(paths)} 个自动安装的操作；同名旧操作已恢复（如有）。')
-        print('项目、照片、Python 环境及其他快速操作均保留。')
+        if args.uninstall:
+            removed, path_removed = uninstall_command()
+            if removed:
+                print('已移除终端命令：~/.local/bin/watermark-tool。')
+            if path_removed:
+                print('已清理本工具添加且未修改的 PATH 设置。')
+            print('若旧终端仍缓存命令位置，请运行 rehash 或重新打开终端。')
+        else:
+            print('仅卸载右键操作，watermark-tool 终端命令保留。')
+        print('项目、照片、个人素材、项目依赖和已有 Python 环境均保留。')
     else:
         validate_command_target()
         ensure_environment(PROJECT_ROOT, svg=args.svg)
@@ -242,6 +288,10 @@ def main(argv=None):
         if args.cli_only:
             print(f'终端命令已安装：{command}，重新打开终端后可使用 watermark-tool。')
             return
+        needs_setup = any(
+            managed_info(services / f'{name}.workflow', kind) is None
+            for name, _, kind in ACTIONS
+        )
         paths = install_workflows(PROJECT_ROOT, services, backups)
         print('安装完成。在 Finder 选中一张或多张照片 → 右键 → 快速操作：')
         for path in paths:
@@ -252,6 +302,8 @@ def main(argv=None):
         print('重新打开终端后也可运行：watermark-tool 照片路径。')
         print('项目移动或改名后，请在新位置重新双击安装。')
     refresh_services()
+    if not uninstall:
+        show_finder_setup(open_settings=args.open_settings and needs_setup)
 
 
 if __name__ == '__main__':

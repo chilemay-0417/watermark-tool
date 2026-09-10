@@ -1,0 +1,42 @@
+{
+  "version": "2.2.6",
+  "date": "2026-09-10",
+  "base_commit": "6b1320d8da1b7532a24f75cedebdfd834d3e4f92",
+  "environment": {
+    "macos": "14.8.9",
+    "architecture": "arm64",
+    "python": "3.14.2"
+  },
+  "tests": {
+    "command": "python3 -B -m unittest discover -v",
+    "total": 200,
+    "passed": 200,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 17.645,
+    "temporary_project_and_user_directories": true,
+    "native_automator": "passed outside the sandbox",
+    "actual_user_installation_changed": false
+  },
+  "checks": {
+    "ruff_source_scripts_tests": "passed",
+    "shell_syntax": "passed",
+    "installer_help": "passed",
+    "local_markdown_links_and_anchors": "passed",
+    "readme_unchanged": true
+  },
+  "coverage": [
+    "First install, repeat install, Finder-only uninstall, full entrypoint uninstall, repeated uninstall",
+    "Terminal command executes after installation and cannot be found after full uninstall",
+    "Preservation of unrelated, edited, binary and symlink commands",
+    "Preservation of user shell edits, shared PATH, ZDOTDIR, symlinks and file permissions",
+    "Rollback on shell write or launcher removal failure",
+    "macOS 15.7.7 settings branch and settings-open failure through mocks"
+  ],
+  "limitations": [
+    "macOS 15.7.7 and first-time Finder checkbox UI were not tested on that system",
+    "Clean temporary home directories do not replace testing with a fresh macOS user",
+    "Finder enablement may still require the user to select the two checkboxes",
+    "No new multi-Python, Intel or dependency-installation matrix was run"
+  ]
+}

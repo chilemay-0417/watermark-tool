@@ -1,6 +1,7 @@
 """Exercise installation transactions and real Automator argument delivery in temporary folders."""
 
 import importlib.util
+from io import StringIO
 import json
 import os
 from pathlib import Path
@@ -239,9 +240,95 @@ class FinderInstallTests(unittest.TestCase):
         with (patch.object(installer.sys, 'platform', 'darwin'),
               patch.object(installer, 'ensure_environment') as setup,
               patch.object(installer, 'uninstall_workflows', return_value=[]),
+              patch.object(installer, 'uninstall_command', return_value=(False, False)) as command,
               patch.object(installer, 'refresh_services')):
             installer.main(['--uninstall'])
         setup.assert_not_called()
+        command.assert_called_once_with()
+
+    def test_finder_only_uninstall_keeps_terminal_command(self):
+        with (patch.object(installer.sys, 'platform', 'darwin'),
+              patch.object(installer, 'uninstall_workflows', return_value=[]) as workflows,
+              patch.object(installer, 'uninstall_command') as command,
+              patch.object(installer, 'refresh_services'),
+              patch.object(installer, 'show_finder_setup') as guide):
+            installer.main(['--uninstall-finder-only'])
+        workflows.assert_called_once()
+        command.assert_not_called()
+        guide.assert_not_called()
+
+    def test_first_install_reinstall_and_full_uninstall_in_clean_home(self):
+        home = self.root / 'user'
+        home.mkdir()
+        (self.project / 'layout.py').write_text('print("ready")\n')
+        with (patch.object(Path, 'home', return_value=home),
+              patch.dict(os.environ, ZDOTDIR=''),
+              patch.object(installer, 'PROJECT_ROOT', self.project),
+              patch.object(installer.sys, 'platform', 'darwin'),
+              patch.object(installer, 'ensure_environment'),
+              patch.object(installer, 'refresh_services'),
+              patch.object(installer, 'show_finder_setup') as guide):
+            installer.main(['--open-settings'])
+            guide.assert_called_once_with(open_settings=True)
+            command = home / '.local/bin/watermark-tool'
+            result = subprocess.run([str(command)], capture_output=True, text=True, check=True)
+            self.assertEqual(result.stdout.strip(), 'ready')
+            installer.main(['--open-settings'])
+            guide.assert_called_with(open_settings=False)
+            installer.main(['--uninstall-finder-only'])
+            self.assertTrue(command.is_file())
+            self.assertEqual(list((home / 'Library/Services').glob('*.workflow')), [])
+            installer.main(['--open-settings'])
+            guide.assert_called_with(open_settings=True)
+            installer.main(['--uninstall'])
+            self.assertFalse(command.exists())
+            self.assertEqual(list((home / 'Library/Services').glob('*.workflow')), [])
+            self.assertNotIn('# watermark-tool command path', (home / '.zshrc').read_text())
+            result = subprocess.run(
+                ['/bin/zsh', '-f', '-c', 'command -v watermark-tool'],
+                env={**os.environ, 'PATH': str(command.parent) + ':/usr/bin:/bin'},
+                capture_output=True, text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            installer.main(['--uninstall'])  # Repeated removal remains harmless.
+        self.assertTrue((self.project / 'layout.py').is_file())
+
+    def test_cli_only_install_does_not_open_settings(self):
+        with (patch.object(installer.sys, 'platform', 'darwin'),
+              patch.object(installer, 'validate_command_target'),
+              patch.object(installer, 'ensure_environment'),
+              patch.object(installer, 'install_command'),
+              patch.object(installer, 'install_workflows') as workflows,
+              patch.object(installer, 'show_finder_setup') as guide):
+            installer.main(['--cli-only'])
+        workflows.assert_not_called()
+        guide.assert_not_called()
+
+    def test_first_use_guidance_targets_sequoia_settings_without_changing_preferences(self):
+        with (patch.object(installer.platform, 'mac_ver', return_value=('15.7.7', (), '')),
+              patch.object(installer.subprocess, 'run') as run,
+              patch.object(sys, 'stdout', new_callable=StringIO) as output):
+            installer.show_finder_setup(open_settings=True)
+        self.assertIn('登录项与扩展 → Finder', output.getvalue())
+        self.assertIn('勾选“添加水印”和“批量添加水印”', output.getvalue())
+        self.assertEqual(run.call_args.args[0], [
+            '/usr/bin/open', 'x-apple.systempreferences:com.apple.LoginItems-Settings.extension',
+        ])
+
+    def test_settings_open_failure_keeps_manual_instructions_and_does_not_fail_install(self):
+        with (patch.object(installer.platform, 'mac_ver', return_value=('15.7.7', (), '')),
+              patch.object(installer.subprocess, 'run', side_effect=OSError('no GUI')) as run,
+              patch.object(sys, 'stdout', new_callable=StringIO) as output):
+            installer.show_finder_setup(open_settings=True)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.args[0],
+                         ['/usr/bin/open', '-b', 'com.apple.systempreferences'])
+        self.assertIn('快速操作 → 自定义', output.getvalue())
+
+    def test_first_use_guidance_does_not_open_settings_without_request(self):
+        with patch.object(installer.subprocess, 'run') as run:
+            installer.show_finder_setup()
+        run.assert_not_called()
 
     @unittest.skipUnless(sys.platform == 'darwin', 'macOS required')
     def test_double_click_launchers_find_python_and_forward_operation(self):
@@ -271,6 +358,8 @@ class FinderInstallTests(unittest.TestCase):
             expected = [str(self.project / 'scripts/install_finder.py')]
             if launcher == '右键操作卸载.command':
                 expected.append('--uninstall')
+            else:
+                expected.append('--open-settings')
             self.assertEqual(json.loads(capture.read_text()), expected)
 
     @unittest.skipUnless(sys.platform == 'darwin', 'macOS required')

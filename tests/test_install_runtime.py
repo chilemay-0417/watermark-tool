@@ -206,6 +206,122 @@ class LocalRuntimeTests(unittest.TestCase):
         self.assertEqual(command.read_text(), 'my command')
         self.assertFalse((self.home / '.zshrc').exists())
 
+    def test_uninstall_removes_launcher_and_only_its_unchanged_path_block(self):
+        shell = self.home / '.zshrc'
+        shell.write_text('# personal setting\nexport KEEP=1\n')
+        shell.chmod(0o600)
+        command = runtime.install_command(self.project, home=self.home)
+        with shell.open('a') as stream:
+            stream.write('# added after installation\nexport LATER=2\n')
+        self.assertEqual(runtime.uninstall_command(home=self.home), (True, True))
+        self.assertFalse(command.exists())
+        contents = shell.read_text()
+        self.assertIn('export KEEP=1\n', contents)
+        self.assertIn('export LATER=2\n', contents)
+        self.assertNotIn(runtime.PATH_LINE, contents)
+        self.assertEqual(shell.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(runtime.uninstall_command(home=self.home), (False, False))
+        self.assertTrue(self.project.is_dir())
+        self.assertTrue((self.home / '.zshrc.watermark-backup').is_file())
+
+    def test_uninstall_preserves_unrelated_modified_and_symlink_commands(self):
+        command = self.home / '.local/bin/watermark-tool'
+        command.parent.mkdir(parents=True)
+        shell = self.home / '.zshrc'
+        original = f'{runtime.PATH_MARKER}\n{runtime.PATH_LINE}\n'
+        shell.write_text(original)
+        for content in ('#!/bin/sh\necho other\n',
+                        runtime.command_text(self.project) + '# user customization\n'):
+            command.write_text(content)
+            self.assertEqual(runtime.uninstall_command(home=self.home), (False, False))
+            self.assertEqual(command.read_text(), content)
+            self.assertEqual(shell.read_text(), original)
+        command.write_bytes(b'\xcf\xfa\xed\xfe\xffbinary')
+        self.assertEqual(runtime.uninstall_command(home=self.home), (False, False))
+        self.assertEqual(command.read_bytes(), b'\xcf\xfa\xed\xfe\xffbinary')
+        command.unlink()
+        other = self.root / 'external-command'
+        other.write_text(runtime.command_text(self.project))
+        command.symlink_to(other)
+        self.assertEqual(runtime.uninstall_command(home=self.home), (False, False))
+        self.assertTrue(command.is_symlink())
+        self.assertTrue(other.is_file())
+        other.unlink()  # Broken symlinks are not removed either.
+        self.assertEqual(runtime.uninstall_command(home=self.home), (False, False))
+        self.assertTrue(command.is_symlink())
+
+    def test_uninstall_preserves_shared_or_user_modified_path(self):
+        shell = self.home / '.zshrc'
+        command = runtime.install_command(self.project, home=self.home)
+        other = command.parent / 'another-tool'
+        other.write_text('keep')
+        original = shell.read_text()
+        self.assertEqual(runtime.uninstall_command(home=self.home), (True, False))
+        self.assertEqual(shell.read_text(), original)
+        self.assertEqual(other.read_text(), 'keep')
+        other.unlink()
+        runtime.install_command(self.project, home=self.home)
+        custom = original.replace(runtime.PATH_LINE, 'export PATH="$HOME/.local/bin:/custom:$PATH"')
+        shell.write_text(custom)
+        self.assertEqual(runtime.uninstall_command(home=self.home), (True, False))
+        self.assertEqual(shell.read_text(), custom)
+
+    def test_uninstall_does_not_remove_an_unmarked_preexisting_path(self):
+        shell = self.home / '.zshrc'
+        original = runtime.PATH_LINE + '\n'
+        shell.write_text(original)
+        runtime.install_command(self.project, home=self.home)
+        self.assertEqual(runtime.uninstall_command(home=self.home), (True, False))
+        self.assertEqual(shell.read_text(), original)
+
+    def test_uninstall_restores_shell_on_command_removal_failure(self):
+        command = runtime.install_command(self.project, home=self.home)
+        shell = self.home / '.zshrc'
+        original = shell.read_text()
+        unlink = Path.unlink
+
+        def fail_command(path, *args, **kwargs):
+            if path == command:
+                raise OSError('cannot remove launcher')
+            return unlink(path, *args, **kwargs)
+
+        with patch.object(Path, 'unlink', fail_command), self.assertRaises(OSError):
+            runtime.uninstall_command(home=self.home)
+        self.assertTrue(command.is_file())
+        self.assertEqual(shell.read_text(), original)
+
+    def test_uninstall_keeps_command_when_shell_update_fails(self):
+        command = runtime.install_command(self.project, home=self.home)
+        shell = self.home / '.zshrc'
+        original = shell.read_text()
+        with (patch.object(runtime, 'atomic_text', side_effect=OSError('read only')),
+              self.assertRaises(OSError)):
+            runtime.uninstall_command(home=self.home)
+        self.assertTrue(command.is_file())
+        self.assertEqual(shell.read_text(), original)
+
+    def test_uninstall_respects_zdotdir_and_preserves_dotfile_symlink(self):
+        settings = self.root / 'settings'
+        settings.mkdir()
+        actual = settings / 'real-zshrc'
+        actual.write_text('# keep\n')
+        link = settings / '.zshrc'
+        link.symlink_to(actual)
+        with (patch.object(Path, 'home', return_value=self.home),
+              patch.dict(os.environ, ZDOTDIR=str(settings))):
+            command = runtime.install_command(self.project)
+            self.assertEqual(runtime.uninstall_command(), (True, True))
+        self.assertTrue(link.is_symlink())
+        self.assertIn('# keep\n', actual.read_text())
+        self.assertNotIn(runtime.PATH_LINE, actual.read_text())
+        self.assertFalse(command.exists())
+
+    def test_managed_path_removal_preserves_crlf_and_unrelated_lines(self):
+        prefix = '# keep\r\n'
+        suffix = 'export NEXT=1\r\n'
+        block = f'{runtime.PATH_MARKER}\r\n{runtime.PATH_LINE}\r\n'
+        self.assertEqual(runtime.without_managed_path(prefix + block + suffix), prefix + suffix)
+
     def test_runtime_uses_live_source_and_matching_native_packages(self):
         source = self.project / 'src'
         source.mkdir()

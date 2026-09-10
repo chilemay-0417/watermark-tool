@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "watermark-tool"
-version = "2.2.5"
+version = "2.2.6"
 description = "Photo watermark layout tool for Finder quick actions and CLI use."
 readme = "README.md"
 requires-python = ">=3.10"

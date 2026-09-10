@@ -38,6 +38,7 @@ watermark_python_candidates() {
 
 setup_finder() {
   local operation="$1"
+  shift
   local candidate resolved setup_python="" missing_pip="" result
   local candidates=()
   if [[ -n "${WATERMARK_PYTHON_BIN:-}" ]]; then
@@ -77,7 +78,7 @@ if sys.argv[1] != "uninstall" and importlib.util.find_spec("pip") is None:
     fi
     return 1
   fi
-  local arguments=()
+  local arguments=("$@")
   [[ "$operation" == "uninstall" ]] && arguments+=(--uninstall)
   "$setup_python" "$SCRIPT_DIR/scripts/install_finder.py" "${arguments[@]}"
 }

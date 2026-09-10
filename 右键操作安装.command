@@ -3,7 +3,7 @@
 SCRIPT_DIR="${0:A:h}"
 cd "$SCRIPT_DIR" || exit 1
 source "$SCRIPT_DIR/scripts/finder_setup.zsh" || exit 1
-setup_finder install
+setup_finder install --open-settings
 result=$?
 if [[ -t 0 ]]; then
   read -r '?按回车键关闭此窗口…'
