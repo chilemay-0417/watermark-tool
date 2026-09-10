@@ -6,13 +6,35 @@
 
 ## 在 Finder 中右键使用
 
-### 双击安装
+### 首次使用：准备 Mac 环境
 
-1. 下载并解压完整项目，放到固定位置，例如 `~/Pictures/watermark_tool`。
-2. 双击项目中的 **[右键操作安装.command](../右键操作安装.command)**。
-3. 等待终端显示“安装完成”，按回车关闭窗口。
+普通用户只需准备一次基础组件，之后由安装器自动配置。**不用学习 Python，不用手动创建或激活虚拟环境，也不用自己运行 pip。** 如果两个右键操作已经能正常使用，可跳过本节；已有 Python 和 Cairo 环境时，直接执行第 3 步。
 
-安装器自动准备项目 `.venv` 和依赖，并安装「添加水印」和「批量添加水印」两个快速操作，覆盖单张、批量、多图合成三个功能。已有可用项目环境时会复用，首次安装依赖需要联网。无需配置 Automator、复制脚本路径或设置输入类型。
+以下以 macOS 14 及更新版本为例；旧系统请先核对 [Homebrew 的支持要求](https://docs.brew.sh/Installation#macos-requirements)。全程需要联网。
+
+**1. 打开终端，安装 Homebrew**
+
+按 `Command + 空格`，搜索「终端」并打开。复制下面整行，粘贴后按回车；这条命令来自 [Homebrew 官网](https://brew.sh/)。已有 Homebrew 时跳到第 2 步。
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+按提示输入 Mac 登录密码（输入时不显示字符是正常的）。如果提示安装 Command Line Tools，按提示完成即可，无需另行下载完整 Xcode。结束后执行终端里 **Next steps** 列出的配置命令，再运行 `brew --version`；出现版本号说明已就绪。
+
+**2. 安装水印工具所需的基础组件**
+
+在同一个终端中复制执行：
+
+```bash
+brew install python cairo libffi
+```
+
+Python 用来运行工具，Cairo / libffi 用来绘制 SVG Logo；其余图片处理组件由水印安装器自动下载。这里统一用 Homebrew 准备基础组件，无需再去 Python 官网单独安装。依赖依据见 [Python 安装项](https://formulae.brew.sh/formula/python@3.14) 和 [CairoSVG 安装说明](https://cairosvg.org/documentation/#installation)。
+
+**3. 双击安装水印右键操作**
+
+下载并解压完整项目，将文件夹放入「图片」等固定位置，双击其中的 **[右键操作安装.command](../右键操作安装.command)**。等待显示「安装完成」，按回车关闭窗口。程序会自动建立自己的运行环境、安装其余依赖，并添加两个右键入口；以后处理照片直接使用 Finder 即可。
 
 ### 添加水印：单张处理或多张合成
 
@@ -53,16 +75,16 @@
 
 ### 环境要求与排错
 
-电脑须已有 **Python 3.10+**；没有时，先从 [Python 官网](https://www.python.org/downloads/macos/) 安装，然后重新双击安装器。安装器本身不需要管理员权限，不安装 Homebrew，也不修改系统 Python。
-
-SVG 标志依赖 Cairo。若验证阶段提示缺少 `cairo` / `libffi`，需先补齐系统库；已安装 Homebrew 的电脑可执行 `brew install cairo libffi`，再重新双击安装。依赖要求见 [CairoSVG 安装说明](https://cairosvg.org/documentation/#installation)。
+工具需要 Python 3.10+ 和 Cairo / libffi。首次配置按上方 [Mac 环境准备](#首次使用准备-mac-环境) 操作；水印安装器会自动完成剩余配置，本身不需要管理员权限。
 
 | 情况 | 处理方法 |
 | --- | --- |
 | 双击脚本被系统拦截 | 根据 macOS 显示的安全提示允许打开可信的项目脚本，再重新双击；安装器不绕过系统权限。 |
 | 右键菜单中没有操作 | 确认已选中照片，关闭并重新打开右键菜单；在快速操作的「自定」或系统设置的 Finder 扩展中确认操作已启用，必要时重新登录。 |
 | 找不到脚本或项目移动了 | 确认保留完整项目文件夹，从实际项目位置重新双击安装器。 |
-| 找不到 Python 或依赖安装失败 | 检查 Python 版本、网络及终端中的错误；补齐环境后重新双击安装器。依赖验证失败时不会替换已有操作。 |
+| 找不到 Python，或缺少 Cairo / libffi | 按上方环境准备步骤安装基础组件，再双击水印安装器。 |
+| 提示 `brew: command not found` | 完成 Homebrew 安装末尾 Next steps 中的配置命令，再运行 `brew --version`。 |
+| 下载依赖失败 | 检查网络并重新双击安装器；验证失败时不会替换已有右键操作。 |
 | `.venv` 无效或不完整 | 将项目中的 `.venv` 文件夹改名备份后重新双击安装，安装器会创建新环境。 |
 | 提示没有收到照片 | 先在 Finder 中选中照片，再从右键菜单调用「添加水印」。 |
 | 无法访问照片或保存目录 | 按 macOS 提示允许相应目录的访问，并确认照片所在目录可写。 |
@@ -81,7 +103,7 @@ INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 
 ## 命令与参数
 
-完成双击安装后，在终端进入项目目录并激活环境，以下命令中的 `python3` 将使用项目依赖：
+本节仅供需要自定义导出参数的进阶用户阅读，日常右键使用可跳过。完成双击安装后，在终端进入项目目录并激活安装器已创建的环境，以下命令中的 `python3` 将使用项目依赖：
 
 ```bash
 cd "/完整路径/watermark_tool"

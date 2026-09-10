@@ -54,7 +54,7 @@
 
 ### macOS：双击安装右键操作
 
-电脑需已有 **Python 3.10+**。下载并解压项目，保留完整文件夹，将它放在固定位置，例如 `~/Pictures/watermark_tool`。
+普通用户无需手动创建或激活 Python 虚拟环境。首次使用先按 [Mac 环境准备](docs/usage.md#首次使用准备-mac-环境) 安装基础组件，再下载并解压项目，将完整文件夹放到「图片」等固定位置。
 
 1. 双击 **[右键操作安装.command](右键操作安装.command)**，安装器会准备项目环境和依赖。
 2. 等待终端显示“安装完成”，按回车关闭窗口。
@@ -70,21 +70,9 @@
 
 双击 **[右键操作卸载.command](右键操作卸载.command)** 可卸载两个入口。首次安装依赖需要联网；环境排错、菜单排序及项目移动后的设置见 [使用指南](docs/usage.md)。
 
-### 命令行：合成或自定义导出
+### 更多设置
 
-完成安装后，在项目目录运行。例如将两张照片合成为一张 4K 图片：
-
-```bash
-.venv/bin/python layout.py samples/vertical1.jpg samples/vertical2.jpg --output-mode video
-```
-
-保留原始尺寸并导出无损 PNG：
-
-```bash
-.venv/bin/python layout.py photo.png --output-mode original -o output.png
-```
-
-命令行多张输入默认合成一张，添加 `--batch` 才会逐张导出。完整命令与参数见 [使用指南](docs/usage.md#命令与参数)。右键操作的长期默认设置在 [config.py](src/watermark_tool/config.py) 中修改，签名和 Logo 的调整见 [定制说明](docs/customization.md)。
+右键操作使用 [config.py](src/watermark_tool/config.py) 中的默认设置，签名和 Logo 的调整见 [定制说明](docs/customization.md)。需要临时选择 PNG、其他布局或导出参数时，再参考 [进阶命令行用法](docs/usage.md#命令与参数)；日常右键使用无需打开终端。
 
 ## 使用须知
 
