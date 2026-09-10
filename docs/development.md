@@ -2,7 +2,7 @@
 
 [使用指南](usage.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-本文适用于 **2.1.0**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
+本文适用于 **2.2.0**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
 
 ## 模块职责
 
@@ -23,6 +23,8 @@
 | `raster.py` / `color.py` | 原生位深像素读取、高精度色彩转换 / sRGB 归一化与色彩规则 |
 | `metadata.py` / `exif_gps.py` | 元数据读取与安全输出策略 / 拍摄参数和 GPS 地点的格式化 |
 | `utils.py` | 日志与同目录临时文件原子替换 |
+| `scripts/install_finder.py` | 安装、迁移、备份和卸载 Finder「添加水印」操作 |
+| `scripts/finder_setup.zsh` | 双击安装/卸载入口的 Python 选择与引导 |
 
 ## 共享流程与依赖
 
@@ -72,19 +74,20 @@
 
 回归测试包含跨块/小数字距及透明标志的逐像素对照、8/16 位 RGBA 原样复制、大画布及占位图分配防回归、两条后端 PNG 压缩档位的像素/元数据一致性、跨进程 GPS 缓存、TTL、容量、失败与不可写降级，以及通知参数传递与限频。GPS 测试使用临时目录及模拟响应，不向真实地理服务发出请求。
 
-在项目根目录安装开发依赖并执行常规检查：
+双击安装器准备好项目环境后，在项目根目录安装开发依赖并执行常规检查：
 
 ```bash
 .venv/bin/python -m pip install -e ".[dev]"
 .venv/bin/python -m unittest discover -v
 .venv/bin/ruff check .
 git diff --check
+zsh -n 右键操作安装.command 右键操作卸载.command scripts/finder_setup.zsh
 zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_common.zsh
 .venv/bin/python layout.py --help
 .venv/bin/python -m watermark_tool --help
 ```
 
-2.1.0 的本机验证记录（2026-09-10）：
+2.1.0 的历史渲染验证记录（2026-09-10，2.2.0 安装器验证见下节）：
 
 | 验证 | 结果与范围 |
 | --- | --- |
@@ -113,6 +116,8 @@ zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_comm
 
 ## 本机性能测量
 
+以下数据来自 2.1.0 渲染优化的测量，不是 2.2.0 安装器新增的性能收益。
+
 优化基线是 2026-09-10 完成内部重构、尚未实施五项性能优化时的本地源码快照；该快照包含当时未提交的改动，与 v2.0.0 标签源码不相同。前后使用相同输入、默认水印、保留色域、原尺寸、JPEG 100 / PNG balanced，关闭 GPS 查询。各场景在独立进程串行运行，首次调用单独记录，表内耗时为后续调用中位数；P3 场景测 2 次，RGBA16 拼接测 1 次，属于小样本性能检查。
 
 | 场景 | 优化前耗时 | 优化后耗时 | 优化前峰值 RSS | 优化后峰值 RSS |
@@ -121,3 +126,30 @@ zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_comm
 | 两张 3000 × 2000 随机 16 位 RGBA 图 → 原尺寸 PNG 拼接 | 4.307 秒 | 1.984 秒 | 561.6 MiB | 326.5 MiB |
 
 P3 输入是构造的渐变 JPEG，RGBA16 输入是固定随机种子的测试 PNG，不能代表所有真实照片。输入构造方式、环境、逐次耗时、输出体积和 RSS 原始数值保存在 [性能记录](performance-2026-09-10.json)。两种场景前后导出像素一致，RGBA16 的 alpha 也一致；输出文件体积分别保持 2,677,305 和 48,745,828 字节。
+
+## Finder 双击安装器
+
+`右键操作安装.command` / `右键操作卸载.command` 共用 `scripts/finder_setup.zsh`，从显式指定的 Python、项目虚拟环境及常见安装路径中选择 Python 3.10+。忽略 macOS 的 `/usr/bin/python3` 开发工具引导程序，避免触发无关安装；不安装 Homebrew、不调用 sudo。
+
+`scripts/install_finder.py` 只依赖标准库。安装时先创建或验证项目 `.venv`，使用该虚拟环境安装 `requirements.txt` 并验证模块可导入（包括 CairoSVG 的原生 Cairo 库），成功后才修改工作流程。缺失的系统库给出排错指引，不自动修改系统软件。卸载直接处理工作流程，不导入图片处理依赖。
+
+生成的 `.workflow` 使用 Automator 的 `Run Shell Script` 动作，输入是 Finder 的 `public.image`，通过参数传递路径。使用 `plistlib` 生成 XML，Shell 命令中的项目路径通过 `shlex.quote()` 转义；统一操作调用 `/bin/zsh` 执行 `watermark_batch_each.sh`，无论输入一张或多张都使用 `--batch`，不复制图片处理逻辑。
+
+统一工作流程先写入临时目录再替换，同时识别并备份移除本工具旧的「照片加水印」「批量加水印」和「合成水印照片」。旧入口必须具备管理标记，或只有一个调用相应入口脚本的 Shell 动作，不能只凭文件名判断。被替换的非托管同名目录移入持久备份；安装器已管理的目录只保留事务回滚副本。任何一次安装写入失败会恢复原有目录。`Info.plist` 中的管理标记、独立 Bundle ID 和原工作流程备份位置用于重复安装和卸载；卸载校验备份目录范围，拒绝恢复到范围之外，且不处理同名符号链接或其他应用的操作。
+
+模板结构参考本机 Automator 生成的工作流程，并用 `/usr/bin/automator` 在临时目录实际执行验证。自动测试覆盖双击入口的解释器选择、安装/卸载参数、Finder 图像筛选、多文件参数转义、移动目录后重装、同名旧操作恢复、安装/恢复失败回滚、越界备份及符号链接保护。自动测试仅使用临时目录，不运行用户已有工作流程；实际安装使用相同安装器更新用户的 Services 目录。另以真实入口验证单张和多张照片分别生成成片。
+
+```bash
+.venv/bin/python -m unittest tests.test_finder_install -v
+zsh -n 右键操作安装.command 右键操作卸载.command scripts/finder_setup.zsh
+```
+
+系统通知、文件访问和下载脚本的打开权限由 macOS 管理，安装器不绕过或自动授予权限。Automator 快速操作与 Finder 的集成说明见 [Apple 使用手册](https://support.apple.com/guide/automator/create-workflows-aut7cac58839/mac)。
+
+### 2.2.0 发布验证
+
+2026-09-10 在 macOS / Python 3.14.2 环境中，155 项自动测试通过，其中 12 项为安装器回归测试；Ruff、文档链接、差异空白、Shell 语法及两个 CLI 帮助入口检查通过。本机已安装「添加水印」并用原生 Automator 验证实际导出。其他 macOS 或 Python 版本尚未实机复测。
+
+安装器默认使用项目 `.venv`。开发或排错时可通过 `WATERMARK_PYTHON_BIN` 指定用于引导的 Python；该变量不代替安装器对项目虚拟环境的验证。Shell 入口支持 `WATERMARK_FINDER_PROGRESS=0` 关闭阶段通知：临时从终端调用时设置此环境变量，长期设置可调整 `watermark_batch_each.sh` 中同名变量的默认值，完成/失败提示仍保留。无需编辑 Automator 工作流程。
+
+发布时同步 `pyproject.toml`、README、使用指南、定制说明、开发说明和更新日志的当前版本。Git 标签及 GitHub Release 使用相同的 `vX.Y.Z`；中文 `.command` 入口必须以可执行权限保存到 Git，并在源码下载包中保留。

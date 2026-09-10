@@ -2,88 +2,79 @@
 
 [返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志与升级说明](../CHANGELOG.md)
 
-本文适用于 **2.1.0**。首次安装见 [README](../README.md#安装与使用)；从 2.0.0 升级见 [升级步骤](../CHANGELOG.md#从-200-升级)，更早版本见对应的历史更新日志。以下命令均在项目目录中运行，并先执行 `source .venv/bin/activate`。需要使用项目记录的依赖版本时，可将 `requirements.txt` 换成 `requirements.lock`。
+本文适用于 **2.2.0**。快速上手见 [README](../README.md#安装与使用)，从 2.1.0 升级见 [升级步骤](../CHANGELOG.md#从-210-升级)。
 
 ## 在 Finder 中右键使用
 
-### 1. 安装并验证环境
+### 双击安装
 
-先完成 README 中的 Python 和依赖安装。建议将项目放在固定位置，例如 `~/Pictures/watermark_tool`，保留其中的 `layout.py`、`src/`、`assets/`、`scripts/` 和两个 `.sh` 入口文件。
+1. 下载并解压完整项目，放到固定位置，例如 `~/Pictures/watermark_tool`。
+2. 双击项目中的 **[右键操作安装.command](../右键操作安装.command)**。
+3. 等待终端显示“安装完成”，按回车关闭窗口。
 
-打开「终端」，进入实际项目目录，赋予脚本执行权限，并用样张验证：
+安装器自动准备项目 `.venv` 和依赖，并安装一个名为「添加水印」的快速操作。已有可用项目环境时会复用，首次安装依赖需要联网。无需配置 Automator、复制脚本路径或设置输入类型。
 
-```bash
-cd "$HOME/Pictures/watermark_tool"
-chmod +x watermark_batch_each.sh watermark_combine_selected.sh
-.venv/bin/python layout.py samples/horizontal1.jpg --include-gps-location false
-```
+### 选图后添加水印
 
-出现完成提示后，在 `samples/` 中确认生成了带 `_watermark` 的图片，再继续配置。若项目放在其他位置，请替换上面的目录。可在项目目录运行 `pwd` 获取完整路径，供下一步粘贴。
+在 Finder 中选中照片 → 右键 →「快速操作」→ **添加水印**。
 
-### 2. 创建「照片加水印」
+- 选中一张：给这张照片添加水印。
+- 选中多张：逐张处理，每张各自生成成片。
+- 成片保存在每张原图所在目录，名称为 `原文件名_watermark.jpg`；重名自动追加序号，原图保留。
+- 单张失败会继续处理其余照片，并在完成后打开错误日志。
 
-1. 按 `⌘ Space` 搜索并打开「自动操作」（Automator）。
-2. 选择「文件」→「新建」→「快速操作」→「选取」。
-3. 在工作流程顶部，将接收内容设为「图像文件」，应用设为「访达（Finder）」。
-4. 在左侧搜索「运行 Shell 脚本」，双击或拖入右侧工作流程区域。
-5. 将 Shell 设为 `/bin/zsh`，将「传递输入」设为「作为自变量」。
-6. 删除脚本框中的默认内容，粘贴以下一行：
+运行时无需打开终端。需要将多张照片拼接成一张，或临时选择 PNG、其他参数时，使用下方 [命令行](#命令与参数)。
 
-   ```bash
-   "/完整路径/watermark_tool/watermark_batch_each.sh" "$@"
-   ```
+### 升级、移动与旧入口迁移
 
-   将 `/完整路径/watermark_tool` 替换为 `pwd` 显示的路径，例如 `/Users/你的用户名/Pictures/watermark_tool`。保留两组英文双引号和 `"$@"`，这样带空格的路径及多张照片才能正确传入。
-7. 按 `⌘ S`，命名为「照片加水印」并保存。
+更新完整项目后，重新双击「右键操作安装.command」即可。项目移动或改名后，也应从新位置重新安装，让操作指向新的项目路径。
 
-这个操作会为选中的每张照片分别导出成片。
+安装器会识别本工具旧的「照片加水印」「批量加水印」和「合成水印照片」，备份后将它们移出快速操作目录，只保留「添加水印」。仅名称相同、但无法确认属于本工具的其他操作会保留；「添加水印」存在同名旧操作时，会先备份再替换。
 
-### 3. 创建「合成水印照片」
+统一操作位于 `~/Library/Services/添加水印.workflow`，旧操作备份位于 `~/Library/Application Support/watermark-tool/finder-backups`。重复安装不会生成重复入口。更新项目文件前，请备份自行修改的配置、签名和 Logo，再按需迁移设置。
 
-再次新建「快速操作」，按上一步设置图像文件、Finder、`/bin/zsh` 和「作为自变量」，将脚本内容换成：
+### 卸载右键操作
 
-```bash
-"/完整路径/watermark_tool/watermark_combine_selected.sh" "$@"
-```
+双击 **[右键操作卸载.command](../右键操作卸载.command)**，等待卸载完成后按回车关闭窗口。
 
-替换为同一项目的完整路径，保存为「合成水印照片」。这个操作将所选照片合成一张；输出模式遵循 `config.py` 的设置，`video` 最多支持 3 张，`adaptive` 和 `original` 不设张数上限。
+卸载只移除安装器管理的「添加水印」，并恢复曾替换的同名旧操作（如有）。迁移时移除的其他旧入口保留在备份目录，不自动重新安装；照片、项目、Python 环境和其他快速操作均保留。卸载不安装图片处理依赖，但仍需可用的 Python。
 
-### 4. 从右键菜单运行
+### 环境要求与排错
 
-在 Finder 中选中照片，右键 →「快速操作」→「照片加水印」或「合成水印照片」。运行时无需打开终端或手动激活虚拟环境。
+电脑须已有 **Python 3.10+**；没有时，先从 [Python 官网](https://www.python.org/downloads/macos/) 安装，然后重新双击安装器。安装器本身不需要管理员权限，不安装 Homebrew，也不修改系统 Python。
 
-成片默认保存在输入照片所在目录；合成时使用第一张输入照片的目录。重名时自动追加序号。合成成功后会在 Finder 中定位成片；失败时会打开错误日志。批量处理中单张失败会继续处理其余照片。
-
-需要固定拼接顺序时，使用命令行按顺序列出照片路径。不要直接在 Automator 中点「运行」测试，这时可能没有选中的照片传入。
-
-### 5. 修改默认设置与排错
-
-右键操作使用 [config.py](../src/watermark_tool/config.py) 的默认值。常用设置如下，保存后下次运行生效：
-
-```python
-OUTPUT_MODE = "adaptive"      # video / adaptive / original
-INCLUDE_GPS_LOCATION = False   # 关闭地点联网查询
-```
-
-两个入口脚本只接收照片路径。需要临时调整参数或导出 PNG 时，使用下方命令行示例。
+SVG 标志依赖 Cairo。若验证阶段提示缺少 `cairo` / `libffi`，需先补齐系统库；已安装 Homebrew 的电脑可执行 `brew install cairo libffi`，再重新双击安装。依赖要求见 [CairoSVG 安装说明](https://cairosvg.org/documentation/#installation)。
 
 | 情况 | 处理方法 |
 | --- | --- |
-| 右键菜单中没有操作 | 确认选中的是图片，并检查工作流程接收「图像文件」、应用为 Finder。若菜单有「自定」，进入后启用对应操作；也可在系统设置中搜索「扩展」检查 Finder 项目。 |
-| 提示没有收到照片 | 将「传递输入」改为「作为自变量」，确认脚本末尾保留 `"$@"`，然后从 Finder 选图运行。 |
-| 提示找不到脚本或 Permission denied | 核对完整路径和引号，重新执行上面的 `chmod +x`。项目移动或改名后，需要同步修改两个快速操作中的路径。 |
-| 提示找不到 Python 或缺少依赖 | 在项目目录执行 `.venv/bin/python -m pip install -r requirements.txt`，再运行样张验证命令。 |
-| 提示无法访问照片或保存目录 | 检查文件读写权限；若 macOS 弹出访问请求，按提示允许访问照片所在文件夹。 |
+| 双击脚本被系统拦截 | 根据 macOS 显示的安全提示允许打开可信的项目脚本，再重新双击；安装器不绕过系统权限。 |
+| 右键菜单中没有操作 | 确认已选中照片，关闭并重新打开右键菜单；在快速操作的「自定」或系统设置的 Finder 扩展中确认操作已启用，必要时重新登录。 |
+| 找不到脚本或项目移动了 | 确认保留完整项目文件夹，从实际项目位置重新双击安装器。 |
+| 找不到 Python 或依赖安装失败 | 检查 Python 版本、网络及终端中的错误；补齐环境后重新双击安装器。依赖验证失败时不会替换已有操作。 |
+| `.venv` 无效或不完整 | 将项目中的 `.venv` 文件夹改名备份后重新双击安装，安装器会创建新环境。 |
+| 提示没有收到照片 | 先在 Finder 中选中照片，再从右键菜单调用「添加水印」。 |
+| 无法访问照片或保存目录 | 按 macOS 提示允许相应目录的访问，并确认照片所在目录可写。 |
+| 同名操作不是普通目录或备份不可用 | 查看安装器指出的具体路径；保留备份并检查该路径后重试，避免直接删除其他工具的文件。 |
 
-脚本会优先尝试项目 `.venv/bin/python`。需要指定其他已装好依赖的 Python 时，在 Automator 的脚本调用前添加：
+### 修改默认设置
 
-```bash
-export WATERMARK_PYTHON_BIN="/完整路径/python3"
+右键操作使用 [config.py](../src/watermark_tool/config.py) 的默认值，保存后下次运行生效，无需重新安装。例如：
+
+```python
+OUTPUT_MODE = "adaptive"      # video / adaptive / original
+INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 ```
 
-创建快速操作的系统界面说明可参考 [Apple 自动操作使用手册](https://support.apple.com/zh-cn/guide/automator/aut7cac58839/mac)。
+签名和 Logo 的替换见 [定制说明](customization.md)。
 
 ## 命令与参数
+
+完成双击安装后，在终端进入项目目录并激活环境，以下命令中的 `python3` 将使用项目依赖：
+
+```bash
+cd "/完整路径/watermark_tool"
+source .venv/bin/activate
+```
 
 ```bash
 # 单张照片：紧凑边框
@@ -108,7 +99,7 @@ python3 layout.py --batch photo1.jpg photo2.jpg --output-mode original --include
 python3 layout.py photo.jpg --show-signature false --signature-text "Shot by You"
 ```
 
-**多张输入默认合成一张，添加 `--batch` 才会逐张导出。** `--batch` 不能与 `-o` 同用，默认导出 JPEG。
+**命令行多张输入默认合成一张，添加 `--batch` 才会逐张导出。** `--batch` 不能与 `-o` 同用，默认导出 JPEG。
 
 默认文件名为 `原文件名_watermark.jpg`；合成时连接各照片文件名，过长时缩短为首张名称加其余张数。文件保存在第一张输入照片的目录，重名时追加序号。`-o` 仅支持 `.jpg`、`.jpeg`、`.png`，会替换同名的已有成片，但拒绝覆盖任何输入原图；编码失败不会损坏已有输出。
 
@@ -201,13 +192,13 @@ python3 scripts/benchmark_render.py --output-dir output/benchmark --iterations 3
 
 PNG 三种压缩设置均为无损，解码后的像素、位深、透明度和元数据一致。默认 `balanced` 沿用压缩等级 6，`fast` 使用等级 1，`small` 使用等级 9；体积差异取决于图片内容，不保证每张图都有明显缩小。JPEG 不受此参数影响。
 
-命令行实时显示“正在准备第几张”“正在查询地点”“正在处理第几张”和“正在保存”，批量模式另显示总张数进度。`--quiet` 隐藏这些正常进度及摘要。Finder 脚本默认以 macOS 通知显示阶段提示（最多每 2 秒一次），完整进度同时写入运行日志；较快的阶段可能被合并，通知显示还取决于系统通知权限和专注模式。可在 Automator 调用脚本前设置 `export WATERMARK_FINDER_PROGRESS=0` 关闭阶段通知，原有完成/失败提示保持可用。
+命令行实时显示“正在准备第几张”“正在查询地点”“正在处理第几张”和“正在保存”，批量模式另显示总张数进度。`--quiet` 隐藏这些正常进度及摘要。Finder 脚本默认以 macOS 通知显示阶段提示（最多每 2 秒一次），完整进度同时写入运行日志；较快的阶段可能被合并，通知显示还取决于系统通知权限和专注模式。阶段通知的高级配置见 [开发说明](development.md#finder-双击安装器)。
 
 ## 支持与开发
 
 遇到问题可提交 [GitHub Issue](https://github.com/chilemay-0417/watermark-tool/issues)，附上系统和 Python 版本、输入格式、复现步骤及完整报错；Finder 失败时会自动打开错误日志。
 
-内部模块职责、辅助函数导入迁移及重构验证记录见 [开发说明](development.md)。项目路径保持不变时，升级后无需重新配置 Finder 快速操作。
+内部模块职责、辅助函数导入迁移、安装器及验证记录见 [开发说明](development.md)。升级后重新双击安装器即可更新右键操作。
 
 开发检查：
 

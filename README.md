@@ -1,10 +1,10 @@
 # Watermark Tool
 
-**版本：2.1.0**
+**版本：2.2.0**
 
-为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名，支持单张处理、批量导出和多图拼接。可通过命令行使用，也可配置 macOS Finder 右键快速操作。
+为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名，支持单张处理、批量导出和多图拼接。可通过命令行使用，也可双击安装 macOS Finder 右键快速操作。
 
-[下载 2.1.0](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.1.0.zip) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [开发说明](docs/development.md) · [更新日志](CHANGELOG.md)
+[下载 2.2.0](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.0.zip) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [开发说明](docs/development.md) · [更新日志](CHANGELOG.md)
 
 ## 功能与效果
 
@@ -52,40 +52,33 @@
 
 ## 安装与使用
 
-需要 **Python 3.10+**。从上方链接下载并解压项目，保留完整文件夹。在终端中运行（将路径替换为实际项目目录，路径含空格时保留引号）：
+### macOS：双击安装右键操作
+
+电脑需已有 **Python 3.10+**。下载并解压项目，保留完整文件夹，将它放在固定位置，例如 `~/Pictures/watermark_tool`。
+
+1. 双击 **[右键操作安装.command](右键操作安装.command)**，安装器会准备项目环境和依赖。
+2. 等待终端显示“安装完成”，按回车关闭窗口。
+3. 在 Finder 选中一张或多张照片 → 右键 → **快速操作 → 添加水印**。
+
+单选处理一张，多选则逐张处理。成片分别保存在原图目录，命名为 `原文件名_watermark.jpg`；重名时追加序号，原图保留。无需打开或配置 Automator。
+
+首次安装依赖需要联网；缺少 Python 或 Cairo 系统库时，按 [环境排错说明](docs/usage.md#环境要求与排错) 补齐后重试。安装器会备份并移除本工具可识别的旧入口，项目移动后重新双击安装即可。卸载时双击 **[右键操作卸载.command](右键操作卸载.command)**。
+
+### 命令行：合成或自定义导出
+
+完成安装后，在项目目录运行。例如将两张照片合成为一张 4K 图片：
 
 ```bash
-cd "/path/to/watermark_tool"
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+.venv/bin/python layout.py samples/vertical1.jpg samples/vertical2.jpg --output-mode video
 ```
 
-安装完成后，在同一终端中为单张照片加水印；重新打开终端时，先进入项目目录并执行 `source .venv/bin/activate`：
+保留原始尺寸并导出无损 PNG：
 
 ```bash
-python3 layout.py samples/horizontal1.jpg
+.venv/bin/python layout.py photo.png --output-mode original -o output.png
 ```
 
-将多张照片合成一张图片，用 `--output-mode` 选择模式：
-
-```bash
-python3 layout.py samples/vertical1.jpg samples/vertical2.jpg --output-mode video
-```
-
-默认在第一张照片的目录保存 `原文件名_watermark.jpg`，合成时会连接各照片文件名；重名时自动追加序号。可用 `-o output.png` 指定输出路径及格式。
-
-逐张批量导出：
-
-```bash
-python3 layout.py --batch photo1.jpg photo2.jpg --output-mode adaptive
-```
-
-不加 `--batch` 时，多张输入会合成一张；`--batch` 不能与 `-o` 同用。
-
-**macOS 右键使用**：按 [Finder 配置步骤](docs/usage.md#在-finder-中右键使用) 添加「照片加水印」和「合成水印照片」两个快速操作，即可在 Finder 中选中照片后右键运行。
-
-**调整默认设置**：修改 [config.py](src/watermark_tool/config.py) 中的 `OUTPUT_MODE` 等配置；更多命令与参数见 [使用指南](docs/usage.md)。
+命令行多张输入默认合成一张，添加 `--batch` 才会逐张导出。完整命令与参数见 [使用指南](docs/usage.md#命令与参数)。右键操作的长期默认设置在 [config.py](src/watermark_tool/config.py) 中修改，签名和 Logo 的调整见 [定制说明](docs/customization.md)。
 
 ## 使用须知
 
