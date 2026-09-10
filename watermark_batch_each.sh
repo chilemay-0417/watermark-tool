@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-# Finder 快速操作：批量给每张照片分别加水印。
+# Finder「批量添加水印」：批量给每张照片分别加水印。
 # 保留整个项目目录，包括 scripts/、src/ 和 assets/。
 PYTHON_BIN="${WATERMARK_PYTHON_BIN:-}"
 SCRIPT_PATH="${(%):-%N}"

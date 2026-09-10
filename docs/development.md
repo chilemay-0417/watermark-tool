@@ -2,7 +2,7 @@
 
 [使用指南](usage.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-本文适用于 **2.2.0**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
+本文适用于 **2.2.1**，说明模块职责、内部接口、验证方法和性能测量。对外 Python 入口仍为 `watermark_tool.LayoutConfig` 和 `watermark_tool.make_canvas`；命令行入口与根目录的 `layout.py` 保持可用。内部辅助函数按职责从对应模块导入。
 
 ## 模块职责
 
@@ -23,7 +23,7 @@
 | `raster.py` / `color.py` | 原生位深像素读取、高精度色彩转换 / sRGB 归一化与色彩规则 |
 | `metadata.py` / `exif_gps.py` | 元数据读取与安全输出策略 / 拍摄参数和 GPS 地点的格式化 |
 | `utils.py` | 日志与同目录临时文件原子替换 |
-| `scripts/install_finder.py` | 安装、迁移、备份和卸载 Finder「添加水印」操作 |
+| `scripts/install_finder.py` | 安装、迁移、备份和卸载 Finder「添加水印」「批量添加水印」操作 |
 | `scripts/finder_setup.zsh` | 双击安装/卸载入口的 Python 选择与引导 |
 
 ## 共享流程与依赖
@@ -87,7 +87,7 @@ zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_comm
 .venv/bin/python -m watermark_tool --help
 ```
 
-2.1.0 的历史渲染验证记录（2026-09-10，2.2.0 安装器验证见下节）：
+2.1.0 的历史渲染验证记录（2026-09-10，2.2.1 安装器验证见下节）：
 
 | 验证 | 结果与范围 |
 | --- | --- |
@@ -116,7 +116,7 @@ zsh -n watermark_batch_each.sh watermark_combine_selected.sh scripts/finder_comm
 
 ## 本机性能测量
 
-以下数据来自 2.1.0 渲染优化的测量，不是 2.2.0 安装器新增的性能收益。
+以下数据来自 2.1.0 渲染优化的测量，不是本次 Finder 更新新增的性能收益。
 
 优化基线是 2026-09-10 完成内部重构、尚未实施五项性能优化时的本地源码快照；该快照包含当时未提交的改动，与 v2.0.0 标签源码不相同。前后使用相同输入、默认水印、保留色域、原尺寸、JPEG 100 / PNG balanced，关闭 GPS 查询。各场景在独立进程串行运行，首次调用单独记录，表内耗时为后续调用中位数；P3 场景测 2 次，RGBA16 拼接测 1 次，属于小样本性能检查。
 
@@ -133,11 +133,20 @@ P3 输入是构造的渐变 JPEG，RGBA16 输入是固定随机种子的测试 P
 
 `scripts/install_finder.py` 只依赖标准库。安装时先创建或验证项目 `.venv`，使用该虚拟环境安装 `requirements.txt` 并验证模块可导入（包括 CairoSVG 的原生 Cairo 库），成功后才修改工作流程。缺失的系统库给出排错指引，不自动修改系统软件。卸载直接处理工作流程，不导入图片处理依赖。
 
-生成的 `.workflow` 使用 Automator 的 `Run Shell Script` 动作，输入是 Finder 的 `public.image`，通过参数传递路径。使用 `plistlib` 生成 XML，Shell 命令中的项目路径通过 `shlex.quote()` 转义；统一操作调用 `/bin/zsh` 执行 `watermark_batch_each.sh`，无论输入一张或多张都使用 `--batch`，不复制图片处理逻辑。
+生成的 `.workflow` 使用 Automator 的 `Run Shell Script` 动作，接收 Finder 的 `public.image` 路径参数。`plistlib` 生成 XML，`shlex.quote()` 转义项目路径，两个入口复用现有图片处理脚本：
 
-统一工作流程先写入临时目录再替换，同时识别并备份移除本工具旧的「照片加水印」「批量加水印」和「合成水印照片」。旧入口必须具备管理标记，或只有一个调用相应入口脚本的 Shell 动作，不能只凭文件名判断。被替换的非托管同名目录移入持久备份；安装器已管理的目录只保留事务回滚副本。任何一次安装写入失败会恢复原有目录。`Info.plist` 中的管理标记、独立 Bundle ID 和原工作流程备份位置用于重复安装和卸载；卸载校验备份目录范围，拒绝恢复到范围之外，且不处理同名符号链接或其他应用的操作。
+| 快速操作 | 脚本 | 行为 |
+| --- | --- | --- |
+| 添加水印 | `watermark_combine_selected.sh` | 单张加水印，多张一次性合成 |
+| 批量添加水印 | `watermark_batch_each.sh` | 使用 `--batch` 逐张导出 |
 
-模板结构参考本机 Automator 生成的工作流程，并用 `/usr/bin/automator` 在临时目录实际执行验证。自动测试覆盖双击入口的解释器选择、安装/卸载参数、Finder 图像筛选、多文件参数转义、移动目录后重装、同名旧操作恢复、安装/恢复失败回滚、越界备份及符号链接保护。自动测试仅使用临时目录，不运行用户已有工作流程；实际安装使用相同安装器更新用户的 Services 目录。另以真实入口验证单张和多张照片分别生成成片。
+安装先暂存两个工作流程，再统一替换，并备份移除可识别的旧入口；失败时回滚。旧入口识别依赖管理标记或唯一的指定脚本调用，不只看名称。非托管同名目录持久备份，已托管目录仅保留事务回滚副本。
+
+2.2.0 的「添加水印」使用 batch 类型，升级为 combine 时继承原始备份路径。重复安装不累积托管旧版，卸载恢复原始同名操作；恢复前校验备份范围和目录类型，同名符号链接不替换。
+
+菜单顺序由 macOS 的 Finder 扩展设置管理，不由 `ACTIONS` 的声明顺序保证。用户可通过「自定…」拖动排序，安装器不修改系统排序偏好。
+
+测试使用临时目录覆盖两个入口的参数传递、三个功能的实际导出、单入口及双入口旧版迁移、重复安装、备份恢复、事务回滚和路径保护。原生 Automator 测试验证生成的工作流程能够接收输入。双击入口另测解释器选择及安装/卸载参数转发。
 
 ```bash
 .venv/bin/python -m unittest tests.test_finder_install -v
@@ -146,9 +155,9 @@ zsh -n 右键操作安装.command 右键操作卸载.command scripts/finder_setu
 
 系统通知、文件访问和下载脚本的打开权限由 macOS 管理，安装器不绕过或自动授予权限。Automator 快速操作与 Finder 的集成说明见 [Apple 使用手册](https://support.apple.com/guide/automator/create-workflows-aut7cac58839/mac)。
 
-### 2.2.0 发布验证
+### 2.2.1 发布验证
 
-2026-09-10 在 macOS / Python 3.14.2 环境中，155 项自动测试通过，其中 12 项为安装器回归测试；Ruff、文档链接、差异空白、Shell 语法及两个 CLI 帮助入口检查通过。本机已安装「添加水印」并用原生 Automator 验证实际导出。其他 macOS 或 Python 版本尚未实机复测。
+2026-09-10 在 macOS 14.8.9 / Python 3.14.2 上，157 项自动测试全部通过，其中 14 项覆盖安装器、3 项覆盖 Finder 脚本；包含三个功能的实际导出和原生 Automator 执行。Ruff、Shell 语法、两个 CLI 帮助入口、文档链接及差异空白检查通过。本机两个快速操作已安装并验证名称和脚本路径。菜单拖动排序依据系统使用说明，未纳入自动 UI 测试；其他系统版本未实机复测。
 
 安装器默认使用项目 `.venv`。开发或排错时可通过 `WATERMARK_PYTHON_BIN` 指定用于引导的 Python；该变量不代替安装器对项目虚拟环境的验证。Shell 入口支持 `WATERMARK_FINDER_PROGRESS=0` 关闭阶段通知：临时从终端调用时设置此环境变量，长期设置可调整 `watermark_batch_each.sh` 中同名变量的默认值，完成/失败提示仍保留。无需编辑 Automator 工作流程。
 

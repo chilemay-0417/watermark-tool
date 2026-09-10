@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-# Finder 快速操作：将照片合成为一张拼版图，张数限制由 Python 按输出模式校验。
+# Finder「添加水印」：单张加水印，多张合成，张数限制由 Python 按输出模式校验。
 # 保留整个项目目录，包括 scripts/、src/ 和 assets/。
 PYTHON_BIN="${WATERMARK_PYTHON_BIN:-}"
 SCRIPT_PATH="${(%):-%N}"
@@ -28,11 +28,15 @@ create_error_log combine || exit 1
 echo "输出文件：$OUTPUT_PATH" >> "$ERROR_LOG"
 if "$PYTHON_BIN" "$PY_SCRIPT" "$@" -o "$OUTPUT_PATH" >> "$ERROR_LOG" 2>&1; then
   rm -f "$ERROR_LOG"
-  show_notification "合成水印照片完成" "已生成：$(basename "$OUTPUT_PATH")"
+  if [[ $# -eq 1 ]]; then
+    show_notification "添加水印完成" "已生成：$(basename "$OUTPUT_PATH")"
+  else
+    show_notification "合成水印照片完成" "已生成：$(basename "$OUTPUT_PATH")"
+  fi
   open -R "$OUTPUT_PATH"
 else
   open "$ERROR_LOG"
-  show_dialog '合成失败，错误日志已经打开。'
+  show_dialog '添加水印失败，错误日志已经打开。'
   exit 1
 fi
 

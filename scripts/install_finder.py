@@ -17,7 +17,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MANAGED_KEY = 'WatermarkToolManagedVersion'
 PREVIOUS_KEY = 'WatermarkToolPreviousWorkflow'
 ACTIONS = (
-    ('添加水印', 'watermark_batch_each.sh', 'batch'),
+    ('添加水印', 'watermark_combine_selected.sh', 'combine'),
+    ('批量添加水印', 'watermark_batch_each.sh', 'batch'),
 )
 LEGACY_ACTIONS = (
     ('照片加水印', 'watermark_batch_each.sh', 'batch'),
@@ -116,7 +117,7 @@ def is_legacy_workflow(workflow, script, kind):
 
 
 def install_workflows(project, services, backups):
-    """Install one unified action and retire recognized legacy actions in one transaction."""
+    """Install single/combine and batch actions, retiring old aliases in one transaction."""
     project = project.resolve()
     for _, script, _ in ACTIONS:
         if not (project / script).is_file():
@@ -131,6 +132,10 @@ def install_workflows(project, services, backups):
             if target.is_symlink() or (target.exists() and not target.is_dir()):
                 raise ValueError(f'同名路径不是普通工作流程目录，请先移走：{target}')
             existing = managed_info(target, kind) if target.exists() else None
+            if existing is None and name == '添加水印':
+                # Older installers used this name for batch. Preserve its original backup
+                # across the kind change so uninstall never revives our obsolete action.
+                existing = managed_info(target, 'batch')
             previous = existing.get(PREVIOUS_KEY) if existing else None
             old = None
             if target.exists():
@@ -253,7 +258,8 @@ def main(argv=None):
         print('安装完成。在 Finder 选中一张或多张照片 → 右键 → 快速操作：')
         for path in paths:
             print(f'  {path.stem}')
-        print('单张照片直接加水印；多张照片逐张添加水印，分别保存成片。')
+        print('添加水印：单张直接加水印，多张合成为一张水印照片。')
+        print('批量添加水印：给选中的照片逐张添加水印，分别保存成片。')
         print(f'同名旧操作及已移除的旧入口备份目录：{backups}')
         print('项目移动或改名后，请在新位置重新双击安装。')
     refresh_services()

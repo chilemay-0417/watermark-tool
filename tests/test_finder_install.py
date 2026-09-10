@@ -69,7 +69,7 @@ class FinderInstallTests(unittest.TestCase):
         command = document['actions'][0]['action']['ActionParameters']['COMMAND_STRING']
         self.assertIn(str(moved), command)
         removed = installer.uninstall_workflows(self.services, self.backups)
-        self.assertEqual(len(removed), 1)
+        self.assertEqual(len(removed), 2)
         self.assertEqual((previous / 'custom-data').read_text(), 'user workflow')
         self.assertTrue(unrelated.is_dir())
         self.assertEqual(installer.uninstall_workflows(self.services, self.backups), [])
@@ -80,10 +80,10 @@ class FinderInstallTests(unittest.TestCase):
             target = self.services / f'{name}.workflow'
             target.mkdir()
             (target / 'custom-data').write_text(name)
-        legacy = self.services / '合成水印照片.workflow'
+        legacy = self.services / '批量加水印.workflow'
         (legacy / 'Contents').mkdir(parents=True)
         info, document = installer.workflow_documents(
-            self.project, '合成水印照片', 'watermark_combine_selected.sh', 'combine',
+            self.project, '批量加水印', 'watermark_batch_each.sh', 'batch',
         )
         (legacy / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
         (legacy / 'Contents/document.wflow').write_bytes(plistlib.dumps(document))
@@ -101,7 +101,7 @@ class FinderInstallTests(unittest.TestCase):
         self.assertTrue(legacy.is_dir())
         self.assertFalse(list(self.services.glob('.watermark-*')))
 
-    def test_install_retires_old_entries_and_keeps_only_one_after_reinstall(self):
+    def test_install_retires_old_entries_and_keeps_both_actions_after_reinstall(self):
         self.services.mkdir()
         for name, script, kind in installer.LEGACY_ACTIONS:
             contents = self.services / f'{name}.workflow/Contents'
@@ -113,12 +113,51 @@ class FinderInstallTests(unittest.TestCase):
             (contents / 'document.wflow').write_bytes(plistlib.dumps(document))
         self.install()
         self.install()
-        self.assertEqual([path.name for path in self.services.glob('*.workflow')],
-                         ['添加水印.workflow'])
+        self.assertEqual({path.name for path in self.services.glob('*.workflow')},
+                         {'添加水印.workflow', '批量添加水印.workflow'})
         self.assertEqual(
             len(list(self.backups.glob('*/*.workflow'))), len(installer.LEGACY_ACTIONS),
         )
         installer.uninstall_workflows(self.services, self.backups)
+        self.assertEqual(list(self.services.glob('*.workflow')), [])
+
+    def test_upgrade_preserves_original_backup_across_action_kind_change(self):
+        previous = self.services / '添加水印.workflow'
+        previous.mkdir(parents=True)
+        (previous / 'custom-data').write_text('original user workflow')
+        old_actions = (
+            ('添加水印', 'watermark_batch_each.sh', 'batch'),
+            ('合成水印照片', 'watermark_combine_selected.sh', 'combine'),
+        )
+        with (patch.object(installer, 'ACTIONS', old_actions),
+              patch.object(installer, 'LEGACY_ACTIONS', ())):
+            self.install()
+        self.install()
+        self.install()
+        self.assertEqual({path.name for path in self.services.glob('*.workflow')},
+                         {'添加水印.workflow', '批量添加水印.workflow'})
+        self.assertIsNotNone(installer.managed_info(previous, 'combine'))
+        self.assertEqual(len(list(self.backups.glob('*/*.workflow'))), 2)
+        self.assertEqual(len(installer.uninstall_workflows(self.services, self.backups)), 2)
+        self.assertEqual((previous / 'custom-data').read_text(), 'original user workflow')
+        self.assertFalse((self.services / '合成水印照片.workflow').exists())
+
+    def test_upgrade_from_batch_only_changes_behavior_and_adds_batch_action(self):
+        with patch.object(installer, 'ACTIONS', (
+            ('添加水印', 'watermark_batch_each.sh', 'batch'),
+        )):
+            self.install()
+        self.install()
+        self.install()
+        self.assertEqual({path.name for path in self.services.glob('*.workflow')},
+                         {'添加水印.workflow', '批量添加水印.workflow'})
+        document = plistlib.loads(
+            (self.services / '添加水印.workflow/Contents/document.wflow').read_bytes(),
+        )
+        self.assertIn('watermark_combine_selected.sh',
+                      document['actions'][0]['action']['ActionParameters']['COMMAND_STRING'])
+        self.assertEqual(list(self.backups.glob('*/*.workflow')), [])
+        self.assertEqual(len(installer.uninstall_workflows(self.services, self.backups)), 2)
         self.assertEqual(list(self.services.glob('*.workflow')), [])
 
     def test_uninstall_keeps_current_action_when_backup_restore_fails(self):
@@ -135,7 +174,7 @@ class FinderInstallTests(unittest.TestCase):
 
         with patch.object(Path, 'rename', rename), self.assertRaises(OSError):
             installer.uninstall_workflows(self.services, self.backups)
-        self.assertIsNotNone(installer.managed_info(previous, 'batch'))
+        self.assertIsNotNone(installer.managed_info(previous, 'combine'))
 
     def test_symlink_conflict_never_replaces_external_directory(self):
         self.services.mkdir()
@@ -201,7 +240,7 @@ class FinderInstallTests(unittest.TestCase):
             self.assertEqual(json.loads(capture.read_text()), expected)
 
     @unittest.skipUnless(sys.platform == 'darwin', 'macOS required')
-    def test_unified_action_exports_one_or_many_photos_individually(self):
+    def test_actions_export_single_batch_and_combined_photos(self):
         from PIL import Image
 
         photos = [self.root / name for name in ('single 中文.png', 'first.png', 'second.png')]
@@ -209,25 +248,35 @@ class FinderInstallTests(unittest.TestCase):
             Image.new('RGB', (200, 240), (50, 100, 150)).save(photo)
         fake_bin = self.root / 'bin'
         fake_bin.mkdir()
-        notify = fake_bin / 'osascript'
-        notify.write_text('#!/bin/sh\nexit 0\n')
-        notify.chmod(0o755)
-        _, document = installer.workflow_documents(ROOT, *installer.ACTIONS[0])
-        command = document['actions'][0]['action']['ActionParameters']['COMMAND_STRING']
-        for inputs in ([photos[0]], photos[1:]):
-            result = subprocess.run(
-                ['/bin/zsh', '-c', command, 'test', *map(str, inputs)],
-                env={**os.environ, 'PATH': str(fake_bin) + os.pathsep + os.environ['PATH'],
-                     'WATERMARK_FINDER_PROGRESS': '0'},
-                capture_output=True, text=True, timeout=30,
-            )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            for photo in inputs:
-                output = photo.with_name(photo.stem + '_watermark.jpg')
-                self.assertTrue(output.exists())
-                with Image.open(output) as image:
-                    image.verify()
-        self.assertEqual(len(list(self.root.glob('*_watermark.jpg'))), 3)
+        for name in ('osascript', 'open'):
+            stub = fake_bin / name
+            stub.write_text('#!/bin/sh\nexit 0\n')
+            stub.chmod(0o755)
+        cases = (
+            (0, [photos[0]], {'single 中文_watermark.jpg'}),
+            (0, photos[1:], {'first_second_watermark.jpg'}),
+            (1, photos[1:], {'first_watermark.jpg', 'second_watermark.jpg'}),
+        )
+        for action_index, inputs, expected in cases:
+            with self.subTest(action=installer.ACTIONS[action_index][0], count=len(inputs)):
+                before = set(self.root.glob('*_watermark.jpg'))
+                _, document = installer.workflow_documents(ROOT, *installer.ACTIONS[action_index])
+                command = document['actions'][0]['action']['ActionParameters']['COMMAND_STRING']
+                result = subprocess.run(
+                    ['/bin/zsh', '-c', command, 'test', *map(str, inputs)],
+                    env={**os.environ,
+                         'PATH': str(fake_bin) + os.pathsep + os.environ['PATH'],
+                         'WATERMARK_FINDER_PROGRESS': '0'},
+                    capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                created = set(self.root.glob('*_watermark.jpg')) - before
+                self.assertEqual({p.name for p in created}, expected)
+                for output in created:
+                    with Image.open(output) as image:
+                        image.verify()
+        self.assertEqual(len(list(self.root.glob('*_watermark.jpg'))), 4)
+        self.assertTrue(all(photo.exists() for photo in photos))
 
     @unittest.skipUnless(sys.platform == 'darwin' and shutil.which('automator'), 'macOS required')
     def test_generated_workflow_runs_in_native_automator(self):
