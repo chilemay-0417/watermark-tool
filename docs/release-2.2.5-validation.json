@@ -1,0 +1,200 @@
+{
+  "date": "2026-09-10",
+  "version": "2.2.5",
+  "baseline_tag": "v2.2.4",
+  "host": {
+    "os": "macOS 14.8.9",
+    "architecture": "arm64"
+  },
+  "actual_python_tests": [
+    {
+      "python": "3.10.20",
+      "tests": 186,
+      "passed": 185,
+      "skipped_optional_svg": 1,
+      "actual_install_and_smoke": "passed"
+    },
+    {
+      "python": "3.11.11",
+      "tests": 186,
+      "passed": 185,
+      "skipped_optional_svg": 1,
+      "actual_install_and_smoke": "passed"
+    },
+    {
+      "python": "3.13.11",
+      "tests": 186,
+      "passed": 185,
+      "skipped_optional_svg": 1,
+      "actual_install_and_smoke": "passed"
+    },
+    {
+      "python": "3.14.2",
+      "tests": 186,
+      "passed": 186,
+      "skipped_optional_svg": 0,
+      "actual_install_and_smoke": "passed"
+    }
+  ],
+  "wheel_resolution": [
+    {
+      "architecture": "arm64",
+      "python": "3.10",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.2.6",
+        "pyspng": "0.1.4"
+      }
+    },
+    {
+      "architecture": "arm64",
+      "python": "3.11",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.4.6",
+        "pyspng": "0.1.4"
+      }
+    },
+    {
+      "architecture": "arm64",
+      "python": "3.12",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.5.3",
+        "pyspng": "0.1.4"
+      }
+    },
+    {
+      "architecture": "arm64",
+      "python": "3.13",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.5.3",
+        "pyspng": "0.1.4"
+      }
+    },
+    {
+      "architecture": "arm64",
+      "python": "3.14",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.5.3",
+        "pyspng": "0.1.4"
+      }
+    },
+    {
+      "architecture": "x86_64",
+      "python": "3.10",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.2.6"
+      }
+    },
+    {
+      "architecture": "x86_64",
+      "python": "3.11",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.4.6"
+      }
+    },
+    {
+      "architecture": "x86_64",
+      "python": "3.12",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.5.3"
+      }
+    },
+    {
+      "architecture": "x86_64",
+      "python": "3.13",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.5.3"
+      }
+    },
+    {
+      "architecture": "x86_64",
+      "python": "3.14",
+      "ok": true,
+      "packages": {
+        "pypng": "0.20220715.0",
+        "pillow": "12.3.0",
+        "pillow_heif": "1.7.0",
+        "numpy": "2.5.3"
+      }
+    }
+  ],
+  "wheel_method": "pip install --dry-run --ignore-installed --only-binary=:all:; evaluate requirements.txt markers for target Darwin CPU and Python first, then resolve using --platform macosx_14_0_<cpu> --python-version <version> --implementation cp --abi cp<version>",
+  "forced_pypng_fallback": {
+    "tests": 186,
+    "passed": 186,
+    "scope": "in-process imports forced to fallback; Finder subprocesses use installed decoder"
+  },
+  "baseline_comparison": {
+    "baseline": "v2.2.4",
+    "cases": [
+      "video-jpg-0",
+      "video-jpg-1",
+      "video-jpg-2",
+      "video-png-0",
+      "video-png-1",
+      "video-png-2",
+      "adaptive-jpg-0",
+      "adaptive-jpg-1",
+      "adaptive-jpg-2",
+      "adaptive-png-0",
+      "adaptive-png-1",
+      "adaptive-png-2",
+      "original-jpg-0",
+      "original-jpg-1",
+      "original-jpg-2",
+      "original-png-0",
+      "original-png-1",
+      "original-png-2"
+    ],
+    "pixel_metadata_color_equal": true
+  },
+  "documents_checked": 6,
+  "cli_examples_checked": 11,
+  "limitations": [
+    "Intel Mac and python.org interpreter not run on physical hardware",
+    "Python 3.12: binary dependency resolution only",
+    "Native Automator test verifies parameter handoff; notification UI and all OS/security/network configurations not exhaustively tested"
+  ],
+  "pip_configuration_and_svg": {
+    "python": "3.14.2",
+    "PIP_USER": "1",
+    "PIP_REQUIRE_VIRTUALENV": "1",
+    "PIP_PREFIX": "temporary unrelated directory",
+    "result": "project-only installation and SVG native rendering passed; unrelated prefix not created"
+  }
+}

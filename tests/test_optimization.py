@@ -8,7 +8,7 @@ import struct
 import subprocess
 import sys
 import tempfile
-import unittest
+from tests import TestCase
 from unittest.mock import patch
 import weakref
 
@@ -29,7 +29,7 @@ from watermark_tool.assets import prepare_logo_image
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class OptimizationTests(unittest.TestCase):
+class OptimizationTests(TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -230,7 +230,7 @@ class OptimizationTests(unittest.TestCase):
         self.assertFalse(paths[1].with_stem(paths[1].stem + '_watermark').exists())
 
 
-class LocationBudgetTests(unittest.TestCase):
+class LocationBudgetTests(TestCase):
     def setUp(self):
         self.enterContext(patch.dict(os.environ, WATERMARK_GPS_CACHE_DIR='off'))
         self.enterContext(patch.object(exif_gps, 'LOCATION_CACHE', {}))

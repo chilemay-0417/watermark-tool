@@ -20,19 +20,24 @@
 | `preserved.py` | 使用已准备的输入与布局进行原生精度合成、PNG/JPEG 编码 |
 | `annotation_tiles.py` | 只为文字、横线和水印触及的区域分配 Pillow 分块 |
 | `location_cache.py` | 有有效期、容量限制的 GPS 地点 SQLite 磁盘缓存 |
+| `png_decoder.py` | 16 位 PNG 原生解码与无编译器的 PyPNG 后备解码 |
 | `raster.py` / `color.py` | 原生位深像素读取、高精度色彩转换 / sRGB 归一化与色彩规则 |
 | `metadata.py` / `exif_gps.py` | 元数据读取与安全输出策略 / 拍摄参数和 GPS 地点的格式化 |
 | `utils.py` | 日志与同目录临时文件原子替换 |
 | `scripts/install_finder.py` | 安装、迁移、备份和卸载 Finder「添加水印」「批量添加水印」操作 |
-| `scripts/finder_setup.zsh` | 双击安装/卸载入口的 Python 选择与引导 |
+| `scripts/finder_setup.zsh` | 查找本机 Python 与 Conda，检查版本和 pip，引导安装/卸载 |
+| `scripts/install_runtime.py` | 将依赖安装到项目目录，注册终端命令并维护 zsh 搜索路径 |
+| `scripts/python_runtime.py` | 选择匹配 Python ABI 的依赖目录，优先加载项目源码 |
 
 ## 共享流程与依赖
 
 `make_canvas()` 复制配置、校验路径，准备照片元数据、字体和水印，再统一计算布局。sRGB 路径调用 `_render_srgb_canvas()`，保留色域路径调用 `render_preserved_canvas()`；两者共用布局和 `annotations.py` 的绘制函数。
 
+`pyproject.toml` 将 `watermark-tool` 注册到 `watermark_tool.cli:run`。常规 pip 安装仍可注册此入口。双击安装生成调用项目 `layout.py` 的终端启动脚本，终端与 Finder 共用源码、配置和素材。
+
 布局和标记修改应放在共享模块。`preserved.py` 不导入 `renderer.py`，也不重新准备字体、水印或布局。
 
-基础依赖在 `pyproject.toml`、`requirements.txt` 和 `requirements.lock` 中保持一致。内置 Logo 使用 PNG，新增素材建议导出为高度至少 400 像素的透明 PNG。CairoSVG 仅用于可选 SVG，读取时才导入；安装方法见 [SVG 支持](usage.md#自定义-svg可选)。
+基础依赖在 `pyproject.toml`、`requirements.txt` 和 `requirements.lock` 中保持一致。安装器使用 `pyproject.toml` 中的兼容版本范围；`requirements.lock` 是可选的固定版本复现清单，不是安装器的默认输入。Intel macOS 不强制安装缺少 wheel 的 pyspng，使用 PyPNG 逐行解码 16 位 PNG；其他平台优先使用 pyspng，无法导入时仍可回退。8 位 PNG 继续使用 Pillow。内置 Logo 使用 PNG，新增素材建议导出为高度至少 400 像素的透明 PNG。CairoSVG 仅用于可选 SVG，读取时才导入；安装方法见 [SVG 支持](usage.md#自定义-svg可选)。
 
 部分 macOS NumPy wheel 的批量矩阵运算会导致色彩转换崩溃。`render_rgb_array()` 和 `srgb_to_color()` 将 RGB 数组展平为二维运算后恢复形状，保留原分块和公式。
 
@@ -72,9 +77,13 @@ GPS 成功结果写入 SQLite：有效期 30 天、最多 2048 条，键由坐�
 
 ## Finder 双击安装器
 
-两个 `.command` 文件共用 `scripts/finder_setup.zsh`。显式设置 `WATERMARK_PYTHON_BIN` 时只使用该解释器；否则依次查找 `/usr/local/bin/python3`、PATH 中的 `python3`、`/opt/homebrew/bin/python3`，要求 Python 3.10+。跳过 `/usr/bin/python3`，避免触发系统开发工具安装。
+两个 `.command` 文件共用 `scripts/finder_setup.zsh`。显式设置 `WATERMARK_PYTHON_BIN` 时只使用该解释器；否则先查找 PATH 中的 `python3`，再查找 Conda 环境变量、本机常见 Python 路径、官网 `/Library/Frameworks/Python.framework/Versions/` 目录、PATH 中的 conda 所属目录、常见 Conda 安装位置及 `~/.conda/environments.txt`，要求 Python 3.10+。安装时同时检查 pip，卸载不要求 pip；全程不新建或激活 Conda 环境。跳过 `/usr/bin/python3`，避免触发系统开发工具安装。
 
-`scripts/install_finder.py` 直接用所选 `sys.executable` 安装 `requirements.txt` 并验证基础模块，不创建或激活环境，不自动修改已有 `.venv`。pip 或导入验证失败时不修改工作流程，不使用 sudo 或绕过受管理 Python 的限制。卸载仅依赖标准库。
+`scripts/install_runtime.py` 用现有 Python 执行 `pip install --target`，将工具依赖安装到项目 `.watermark-deps/`，按 Python ABI 和 CPU 架构区分。不新建解释器环境，不向 Homebrew 的全局包目录写入，也不使用 `--break-system-packages`。覆盖用户 pip 配置中的 `user`、`prefix`、`root` 和 `require-virtualenv`，保留软件源、代理与证书设置，避免已有 pip 偏好改变安装目标。采用 pip 官方支持的 [目标目录安装](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-t)。
+
+先在临时目录安装并验证依赖，再替换本工具的旧依赖；下载或验证失败时保留旧安装。依赖清单与 Python 版本未变且验证通过时直接复用。`scripts/python_runtime.py` 让 `layout.py` 和 Finder 子进程优先加载项目源码及对应依赖目录，项目移动后源码与素材仍保持相对路径。
+
+安装器生成 `~/.local/bin/watermark-tool`，并向 zsh 配置文件追加带标记的 PATH 设置，原文件首次修改前备份。重复安装更新启动路径，不重复追加；遇到其他工具的同名命令时保留并报错。默认配置文件为 `~/.zshrc`，已有 `ZDOTDIR` 时遵循其位置，原配置备份在同目录的 `.watermark-backup` 文件中。`--cli-only` 仅安装命令，`--svg` 同时安装可选 SVG 支持。卸载右键操作只依赖标准库，命令与依赖保留。
 
 生成的工作流程将安装时的 Python 绝对路径写入 `WATERMARK_PYTHON_BIN`，路径用 `shlex.quote()` 转义。右键运行时不再依赖终端的激活状态；解释器失效时提示重新安装，不静默切换其他 Python。
 
@@ -91,21 +100,42 @@ GPS 成功结果写入 SQLite：有效期 30 天、最多 2048 条，键由坐�
 
 ## 测试与验证
 
-在项目目录用已有 Python 安装开发依赖并检查：
+在项目目录用已有 Python 将开发依赖安装到本地目录后检查：
 
 ```bash
-python3 -m pip install -e ".[dev]"
-python3 -m unittest discover -v
-python3 -m ruff check .
+python3 -m pip install --target .dev-packages ".[dev]"
+PYTHONPATH="src:.dev-packages" python3 -m unittest discover -v
+PYTHONPATH="src:.dev-packages" python3 -m ruff check .
 git diff --check
 for script in *.command *.sh scripts/*.zsh; do zsh -n "$script" || break; done
-python3 layout.py --help
-python3 -m watermark_tool --help
+watermark-tool --help
+PYTHONPATH="src:.dev-packages" python3 -m watermark_tool --help
 ```
 
-安装器测试使用临时目录，不安装真实依赖或修改用户快速操作；原生 Automator 用临时工作流程验证参数传递。GPS 测试使用模拟响应，不请求真实地点服务。可单独运行 `python3 -m unittest tests.test_finder_install -v`。
+自动测试中的安装器使用临时目录和模拟下载，不安装真实依赖或修改用户快速操作；发布前另做真实依赖安装与临时用户目录验收。原生 Automator 用临时工作流程验证参数传递。GPS 测试使用模拟响应，不请求真实地点服务。可单独运行 `PYTHONPATH="src:.dev-packages" python3 -m unittest tests.test_finder_setup tests.test_finder_install tests.test_install_runtime -v`。
 
 调整绘制时，用相同输入、配置、字体和依赖对照尺寸、像素及元数据。ICC 可能包含不同时间字段，不宜只比较文件哈希。系统通知的显示和菜单排序需另做 UI 检查。
+
+### 2.2.5 发布验证
+
+2026-09-10，在 macOS 14.8.9 / Apple Silicon 上对比 `v2.2.4`，审阅全部 6 份 Markdown、LICENSE、性能记录、依赖清单与安装/运行入口。
+
+| 实际解释器 | 依赖安装与完整自动测试 |
+| --- | --- |
+| Homebrew Python 3.14.2 | 186 项通过 |
+| Miniconda Python 3.13.11 | 185 项通过，1 项可选 SVG 测试因未安装而跳过 |
+| Conda Python 3.11.11 | 185 项通过，1 项可选 SVG 测试因未安装而跳过 |
+| Conda Python 3.10.20 | 185 项通过，1 项可选 SVG 测试因未安装而跳过 |
+
+四种解释器均实际安装到独立 ABI 依赖目录，在临时用户目录验证重复安装、命令帮助、目录外 PNG 导出、两种快速操作注册和卸载；调用命令时清除 Conda 激活变量，PATH 仅含系统目录。完整自动测试还覆盖 Finder 单张/批量/合成实际导出、原生 Automator 参数传递、失败回滚、特殊路径和旧入口迁移。
+
+- Python 3.10–3.14 × Apple Silicon / Intel 共 10 组依赖矩阵，按目标环境计算依赖标记后执行 pip 二进制包解析，全部通过；不要求编译依赖。
+- 强制禁用 pyspng 后运行完整测试，并单独对照 16 位灰度、灰度透明、RGB、RGBA 和颜色键透明的原始样本，验证后备解码保留精度。
+- `v2.2.4` 与本版对照 18 组输出（三种布局 × JPEG/PNG × 单横图/单竖图/双图）；尺寸、解码像素、EXIF 和 ICC 色彩定义一致，比较 ICC 时忽略生成时间。
+- 启用 `PIP_USER=1`、`PIP_REQUIRE_VIRTUALENV=1` 和其他 `PIP_PREFIX` 时，实际安装仍限制在项目目录；新增 SVG 安装与原生 Cairo 渲染验证通过。
+- 全部本地文档链接/锚点、代码块、11 条命令行示例、Ruff、Shell 语法与 Git 差异检查通过。
+
+Intel Mac 和 Python 官网安装版未实机运行；Python 3.12 仅验证依赖包解析，未运行全套功能测试。官网安装目录、未激活 Conda、缺少 pip 和不支持的 Python 使用模拟测试验证发现与提示逻辑。上述结果不等于所有系统版本、网络、权限与自定义 Python 配置均已验证。机器可读依赖矩阵见 [发布验证记录](release-2.2.5-validation.json)。
 
 ### 历史发布验证
 

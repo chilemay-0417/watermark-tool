@@ -209,44 +209,6 @@ class FinderInstallTests(unittest.TestCase):
             installer.main([])
         install.assert_not_called()
 
-    def test_install_uses_existing_python_without_creating_environment(self):
-        for preexisting in (False, True):
-            with self.subTest(preexisting=preexisting):
-                environment = self.project / '.venv'
-                if preexisting:
-                    environment.mkdir()
-                    (environment / 'user-data').write_text('keep')
-                with patch.object(installer.subprocess, 'run') as calls:
-                    installer.ensure_environment(self.project)
-                self.assertEqual(calls.call_count, 2)
-                commands = [call.args[0] for call in calls.call_args_list]
-                self.assertTrue(all(command[0] == sys.executable for command in commands))
-                self.assertEqual(commands[0][1:4], ['-m', 'pip', 'install'])
-                self.assertNotIn('venv', commands[0])
-                self.assertEqual(environment.exists(), preexisting)
-                if preexisting:
-                    self.assertEqual((environment / 'user-data').read_text(), 'keep')
-
-    def test_pip_failure_stops_before_validation_or_workflow_changes(self):
-        failure = subprocess.CalledProcessError(1, ['python', '-m', 'pip'])
-        with (patch.object(installer.sys, 'platform', 'darwin'),
-              patch.object(installer.subprocess, 'run', side_effect=failure) as calls,
-              patch.object(installer, 'install_workflows') as install,
-              self.assertRaisesRegex(RuntimeError, '依赖安装失败')):
-            installer.main([])
-        self.assertEqual(calls.call_count, 1)
-        install.assert_not_called()
-        self.assertFalse((self.project / '.venv').exists())
-
-    def test_import_failure_does_not_change_workflows(self):
-        failure = subprocess.CalledProcessError(1, ['python', '-c', 'import'])
-        with (patch.object(installer.sys, 'platform', 'darwin'),
-              patch.object(installer.subprocess, 'run', side_effect=[None, failure]),
-              patch.object(installer, 'install_workflows') as install,
-              self.assertRaisesRegex(RuntimeError, '依赖验证失败')):
-            installer.main([])
-        install.assert_not_called()
-
     def test_workflow_keeps_selected_python_with_special_path_characters(self):
         selected = str(self.root / 'Python 中文 "quote" $x `test`' / 'python3')
         script = self.project / installer.ACTIONS[0][1]
@@ -292,11 +254,17 @@ class FinderInstallTests(unittest.TestCase):
                         'if sys.argv[1] != "-c":\n'
                         f'    Path({str(capture)!r}).write_text(json.dumps(sys.argv[1:]))\n')
         fake.chmod(0o755)
-        for launcher in ('右键操作安装.command', '右键操作卸载.command'):
+        for launcher, explicit in (('右键操作安装.command', True),
+                                   ('右键操作卸载.command', True),
+                                   ('右键操作安装.command', False)):
             shutil.copy(ROOT / launcher, self.project / launcher)
+            environment = {**os.environ, 'PATH': str(self.root) + os.pathsep + os.environ['PATH']}
+            environment.pop('WATERMARK_PYTHON_BIN', None)
+            if explicit:
+                environment['WATERMARK_PYTHON_BIN'] = str(fake)
             result = subprocess.run(
                 ['/bin/zsh', str(self.project / launcher)],
-                env={**os.environ, 'WATERMARK_PYTHON_BIN': str(fake)},
+                env=environment,
                 stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10,
             )
             self.assertEqual(result.returncode, 0, result.stderr)

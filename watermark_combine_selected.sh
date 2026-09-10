@@ -14,7 +14,8 @@ if ! OUTPUT_PATH="$("$PYTHON_BIN" - "$@" <<'PY'
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path.cwd() / "src"))
+from scripts.python_runtime import activate_project
+activate_project(Path.cwd())
 from watermark_tool.cli import make_default_output_path
 
 print(make_default_output_path(sys.argv[1:]))

@@ -64,6 +64,7 @@ def make_output_path_from_original(photo_path):
 def build_parser(defaults=None):
     defaults = defaults or LayoutConfig()
     parser = argparse.ArgumentParser(
+        prog="watermark-tool",
         description=(
             "将照片排版到画布，并自动添加日期、拍摄参数、"
             "相机品牌 logo 与签名。video 支持 1-3 张，输出 3840x2160；"

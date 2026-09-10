@@ -2,7 +2,7 @@
 
 [返回 README](../README.md) · [使用指南](usage.md)
 
-修改配置或素材后，下次处理照片时生效，无需重新安装右键操作。
+右键操作与 `watermark-tool` 命令共用项目中的配置、签名和 Logo。修改并保存后，下次运行即生效，无需重新安装。
 
 ## 更换或隐藏签名
 
@@ -19,10 +19,10 @@ SHOW_SIGNATURE = False
 SIGNATURE_TEXT = "Shot by You"  # 改为 "" 即可隐藏签名
 ```
 
-文字签名默认使用日期字体，含中文时使用黑体-简，整体旋转后放在照片右侧。需要临时更改文字或字号时，在项目目录运行：
+文字签名默认使用日期字体，含中文时使用黑体-简，整体旋转后放在照片右侧。也可在终端临时更改文字或字号，仅对这次运行生效：
 
 ```bash
-python3 layout.py photo.jpg --show-signature false --signature-text "Shot by You" --signature-font-size 42
+watermark-tool photo.jpg --show-signature false --signature-text "Shot by You" --signature-font-size 42
 ```
 
 ## 更换或添加品牌 Logo
@@ -55,6 +55,8 @@ Logo 会自动缩放到统一高度。SVG 需要 [额外依赖](usage.md#自定�
 - 签名只显示一次，位于最右侧照片旁；有 Logo 时放在 Logo 上方。
 
 「批量添加水印」逐张导出，每张照片独立显示 Logo 和签名。
+
+项目移动或改名后，按 [使用指南](usage.md#升级移动与卸载) 重新双击安装，让右键和终端指向新位置。
 
 ## 使用其他素材目录（进阶）
 

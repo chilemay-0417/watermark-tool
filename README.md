@@ -2,9 +2,9 @@
 
 **在 Mac 上，右键就能为照片加水印。**
 
-通过 macOS Finder 快速操作，为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名，支持单张处理、批量导出和多图拼接。
+为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名。支持 macOS Finder 右键快速操作和终端命令，可单张处理、批量导出或多图拼接。
 
-[下载 2.2.4](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.4.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
+[下载源码](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.5.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
 
 ## 特色：macOS 右键快速操作
 
@@ -19,6 +19,16 @@
 - **自动识别**：读取拍摄参数、日期和相机品牌，匹配对应 Logo。
 - **自由定制**：更换个人签名、品牌 Logo，调整布局和文字样式。
 - **保留原图**：成片保存到原图目录，重名自动编号；合成时使用第一张输入照片的目录。
+
+## 终端命令
+
+完成 [安装](docs/usage.md#安装与首次使用) 并重新打开终端后，也可用一条命令加水印：
+
+```bash
+watermark-tool photo.jpg
+```
+
+将 `photo.jpg` 换成照片路径，或直接把照片拖入终端。成片保存在原图目录，无需进入工具文件夹。批量处理和 PNG 导出见 [命令行用法](docs/usage.md#命令与参数)，全部参数可用 `watermark-tool --help` 查看。
 
 ## 布局与效果
 

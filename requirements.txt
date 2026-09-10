@@ -1,4 +1,5 @@
 Pillow>=12.2,<13.0
 pillow-heif>=1.0,<2.0
 numpy>=1.26,<3.0
-pyspng>=0.1.4,<0.2
+pyspng>=0.1.4,<0.2; sys_platform != "darwin" or platform_machine != "x86_64"
+pypng==0.20220715.0

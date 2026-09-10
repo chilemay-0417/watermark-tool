@@ -36,7 +36,9 @@ def main():
     if args.iterations < 1 or Path(args.label).name != args.label:
         parser.error('iterations must be positive and label must be a filename')
     root = args.project_root.resolve()
-    sys.path.insert(0, str(root / 'src'))
+    sys.path.insert(0, str(root))
+    from scripts.python_runtime import activate_project
+    activate_project(root)
     from watermark_tool.config import LayoutConfig
     from watermark_tool.renderer import make_canvas
     from watermark_tool.utils import LOGGER

@@ -4,12 +4,15 @@
 
 ## 安装与首次使用
 
-1. 安装 [Python 3.10 或更新版本](https://www.python.org/downloads/macos/) 的 macOS `.pkg` 安装包；已有可用版本可跳过。
-2. 下载并解压完整项目，放到「图片」等固定位置。
-3. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待“安装完成”，按回车关闭窗口。首次安装依赖需要联网。
-4. 在 Finder 中选中照片 → 右键 → **快速操作**，选择所需功能。
+1. 下载并解压完整项目，放到「图片」等固定位置。
+2. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待“安装完成”，按回车关闭窗口。首次安装依赖需要联网。
+3. 在 Finder 中选中照片 → 右键 → **快速操作**，选择所需功能。
 
-安装器直接使用已有 Python 安装依赖，不新建环境，也无需激活环境。内置 Logo 可直接使用，无需安装 Conda、Homebrew 或 Cairo。
+一键安装仅支持 macOS，需要本机已有 **Python 3.10+ 和 pip**。安装器自动查找 Homebrew、官网安装版或 Conda / Miniconda / Miniforge 的 Python；Conda 无需先激活。没有 Python 或 pip 时会给出安装提示，不会自动安装 Python。
+
+支持 Apple Silicon 和 Intel Mac；Intel 的 16 位 PNG 使用纯 Python 后备解码，不要求安装编译工具，但处理大图可能较慢。已验证的版本、架构和限制见 [兼容性验证](development.md#225-发布验证)。
+
+依赖保存在工具目录，无需换装 Python 或新建环境。一次安装同时配置右键操作和 `watermark-tool` 命令；使用命令前重新打开终端。
 
 ## 右键添加水印
 
@@ -26,8 +29,9 @@
 ## 升级、移动与卸载
 
 - **升级**：备份自己的配置、签名、Logo 和品牌规则，更新完整项目并迁移个人设置，再双击安装文件。不要直接用旧 `config.py` 覆盖新配置。
-- **移动或改名**：从项目的新位置重新双击安装文件。
-- **卸载**：双击 [右键操作卸载.command](../右键操作卸载.command)。照片、项目和 Python 保留。
+- **移动或改名**：在新位置重新双击「右键操作安装.command」，同时更新右键操作和终端命令的路径。保留完整项目文件夹。
+- **卸载右键操作**：双击 [右键操作卸载.command](../右键操作卸载.command)。终端命令、依赖、照片和项目保留。
+- **彻底移除工具**：先卸载右键操作，再删除 `~/.local/bin/watermark-tool`；如需清理 PATH，删除 zsh 配置中 `# watermark-tool command path` 及其紧随的设置行。备份个人素材后可删除项目（含 `.watermark-deps`）。
 - **菜单排序**：在快速操作的「自定…」中调整；顺序由 macOS 管理。
 
 重复安装不会增加重复入口。安装器会备份可识别的旧操作；卸载时恢复曾替换的原始同名操作，其他已迁移的旧入口不自动恢复。备份保存在 `~/Library/Application Support/watermark-tool/finder-backups`。
@@ -37,9 +41,11 @@
 | 情况 | 处理方法 |
 | --- | --- |
 | 双击文件被系统拦截 | 按 macOS 的安全提示允许打开可信的项目脚本。 |
-| 找不到 Python | 安装上方链接中的 Python 3.10+，再双击安装文件。 |
-| pip 提示 `externally-managed-environment` 或没有写入权限 | 改用 Python 官网的 macOS 安装包，再重新安装右键操作；有多个 Python 时，按下方方法指定。 |
-| 下载依赖失败 | 检查网络后重试。 |
+| 找不到 Python | 安装 [Python 3.10+](https://www.python.org/downloads/macos/)，已有 Homebrew 也可用 `brew install python`；再双击安装文件。 |
+| 提示 `externally-managed-environment` | 使用新版双击安装文件，不要直接向 Homebrew 的 Python 全局安装依赖。 |
+| 工具目录没有写入权限 | 将完整项目移到自己的「图片」或「文稿」目录，再重新双击安装。 |
+| 找到 Python 但缺少 pip | 为报错所列的 Python 安装 pip；Conda 用户在对应的已有环境运行 `conda install pip`，再双击安装。 |
+| 下载依赖失败 | 检查网络、代理或软件源后重试；保留完整项目，不要只下载安装脚本。 |
 | 提示证书验证失败（`CERTIFICATE_VERIFY_FAILED`） | 使用 Python 官网安装包时，打开「应用程序 → Python 3.x」，双击 `Install Certificates.command`，完成后重试。 |
 | 右键菜单没有操作 | 先选中照片，在快速操作「自定…」或系统设置的 Finder 扩展中启用；仍未显示时重新登录。 |
 | 项目或 Python 路径失效 | 保留完整项目，重新双击安装文件。 |
@@ -52,11 +58,11 @@
 WATERMARK_PYTHON_BIN="/完整路径/python3" /bin/zsh 右键操作安装.command
 ```
 
-安装窗口会显示所用 Python 的路径，右键操作会记住该路径。
+安装窗口会显示所用 Python 的路径，右键和终端命令共用它。升级 Python 或移动项目后，重新双击安装即可。
 
 ## 修改默认设置
 
-用文本编辑器打开 [config.py](../src/watermark_tool/config.py)，修改并保存，下次右键处理即生效：
+用文本编辑器打开 [config.py](../src/watermark_tool/config.py)，修改并保存，下次通过右键或终端处理时都生效：
 
 ```python
 OUTPUT_MODE = "adaptive"      # 贴合照片；video 为固定 4K；original 保留原尺寸
@@ -67,28 +73,30 @@ INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 
 ## 命令与参数
 
-日常右键使用可跳过本节。打开终端，输入 `cd `（末尾有空格），将项目文件夹拖入终端，再按回车。
+完成双击安装后，重新打开终端即可使用 `watermark-tool`，无需进入项目目录。
 
-只用命令行时，在项目目录安装依赖一次即可：
+只想安装终端命令时，在项目目录运行一次：
 
 ```bash
-python3 -m pip install -r requirements.txt
+python3 scripts/install_finder.py --cli-only
 ```
 
-下列 `python3` 应使用安装依赖时的同一个 Python；有多个版本时，可替换为安装窗口显示的完整路径。将 `photo.jpg` 等示例名称换成自己的照片路径，路径含空格时加双引号。
+进入项目目录的方法：在终端输入 `cd `（末尾有空格），将项目文件夹拖入终端，按回车。安装后可从任意目录调用；保留项目文件夹，修改其中的配置和素材仍会生效。
+
+将示例中的 `photo.jpg` 换成照片路径，也可直接将照片拖入终端；路径含空格时加双引号。
 
 ```bash
 # 单张加水印，默认贴合照片
-python3 layout.py photo.jpg
+watermark-tool photo.jpg
 
 # 多张合成为 16:9 视频素材（按输入顺序排列）
-python3 layout.py photo1.jpg photo2.jpg --output-mode video
+watermark-tool photo1.jpg photo2.jpg --output-mode video
 
 # 多张分别导出
-python3 layout.py --batch photo1.jpg photo2.jpg
+watermark-tool --batch photo1.jpg photo2.jpg
 
 # 保留照片原始尺寸，导出 PNG
-python3 layout.py photo.png --output-mode original -o output.png
+watermark-tool photo.png --output-mode original -o output.png
 ```
 
 **多张输入默认合成一张；加 `--batch` 才会逐张导出。** `--batch` 不能与 `-o` 同用。
@@ -108,7 +116,15 @@ python3 layout.py photo.png --output-mode original -o output.png
 | `--show-signature` | 是否显示签名图片 | `true` |
 | `--signature-text` | 关闭签名图片后的替代文字；`""` 表示隐藏 | `哈哈哈` |
 
-以上为随附默认值，修改 `config.py` 后命令行也会使用新值。完整参数见 `python3 layout.py --help`。
+以上为随附默认值，修改 `config.py` 后命令行也会使用新值。查看完整参数：
+
+```bash
+watermark-tool --help
+```
+
+也可简写为 `watermark-tool -h`。
+
+命令安装在 `~/.local/bin/watermark-tool`，安装器会为 macOS 默认的 zsh 配置搜索路径。使用 bash、fish 等其他 shell 时，需自行将 `~/.local/bin` 加入 PATH。如果提示 `command not found`，重新打开终端；也可直接运行 `~/.local/bin/watermark-tool --help`。
 
 ## 布局与格式
 
@@ -157,25 +173,25 @@ HDR、损坏或不匹配的 ICC、不支持的色彩标记会报错。带有效 
 
 ```bash
 # 关闭所有磁盘缓存
-WATERMARK_CACHE_DIR=off python3 layout.py photo.jpg
+WATERMARK_CACHE_DIR=off watermark-tool photo.jpg
 
 # 只关闭地点磁盘缓存；仍允许联网查询
-WATERMARK_GPS_CACHE_DIR=off python3 layout.py photo.jpg
+WATERMARK_GPS_CACHE_DIR=off watermark-tool photo.jpg
 ```
 
 这两个变量也可设为完整目录路径。关闭联网查询仍用 `--include-gps-location false`，同时跳过地点缓存读取。
 
 ## 自定义 SVG（可选）
 
-新手建议使用透明 PNG。确需 SVG 时，用运行工具的同一个 Python 安装：
+新手建议使用透明 PNG。确需 SVG 时，在项目目录用安装窗口显示的同一个 Python 安装可选支持；必要时将下面的 `python3` 换成其完整路径：
 
 ```bash
-python3 -m pip install ".[svg]"
+python3 scripts/install_finder.py --cli-only --svg
 ```
 
 还需安装原生 Cairo 库；已有 Homebrew 可运行 `brew install cairo libffi`，已有 Conda 可在当前使用的环境运行 `conda install -c conda-forge cairo libffi`。具体要求见 [CairoSVG 文档](https://cairosvg.org/documentation/#installation)。
 
-用 `python3 -c "import cairosvg"` 检查依赖是否可用。若仍报错，可将 SVG 转为 PNG，并更新 `assets/brands.json` 的文件名。
+安装器会验证 SVG 依赖。若仍报错，可将 SVG 转为 PNG，并更新 `assets/brands.json` 的文件名。
 
 ## 获取帮助
 

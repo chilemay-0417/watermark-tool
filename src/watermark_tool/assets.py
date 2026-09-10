@@ -43,7 +43,7 @@ def open_logo_image(path):
         except (ImportError, OSError) as exc:
             raise RuntimeError(
                 f"无法加载 SVG 支持：{path}。请将 Logo 导出为透明 PNG，"
-                '或在项目目录用当前运行环境执行 python -m pip install ".[svg]"，'
+                '或在项目目录执行 python3 scripts/install_finder.py --cli-only --svg，'
                 "并安装 Cairo 原生库；详见 docs/usage.md 的「自定义 SVG（可选）」。"
             ) from exc
 

@@ -14,6 +14,10 @@ from xml.parsers.expat import ExpatError
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.install_runtime import (  # noqa: E402
+    ensure_dependencies, install_command, validate_command_target,
+)
 MANAGED_KEY = 'WatermarkToolManagedVersion'
 PREVIOUS_KEY = 'WatermarkToolPreviousWorkflow'
 ACTIONS = (
@@ -202,32 +206,9 @@ def uninstall_workflows(services, backups):
     return removed
 
 
-def ensure_environment(project):
-    """Install dependencies into the selected existing Python without creating an environment."""
-    python = sys.executable
-    if sys.version_info < (3, 10):
-        raise RuntimeError('需要 Python 3.10 或更新版本。')
-    print(f'使用 Python：{python}', flush=True)
-    print('正在检查并安装依赖（首次安装需要联网）…', flush=True)
-    try:
-        subprocess.run([python, '-m', 'pip', 'install', '--disable-pip-version-check',
-                        '-r', str(project / 'requirements.txt')], check=True)
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            '依赖安装失败，尚未修改右键操作。请查看上方错误；'
-            '若提示 externally-managed-environment 或权限不足，请改用 Python 官网的 '
-            'macOS 安装包，并按 docs/usage.md 指定 Python 后重试。'
-        ) from exc
-    try:
-        subprocess.run([str(python), '-c',
-                        'import sys; sys.path.insert(0, "src"); '
-                        'import watermark_tool, pillow_heif, pyspng'],
-                       cwd=project, check=True)
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            '依赖验证失败，尚未修改右键操作。请查看上方错误；'
-            '请按 docs/usage.md 的安装排错说明处理后重试。'
-        ) from exc
+def ensure_environment(project, svg=False):
+    """Keep the existing entry point for callers of the installer."""
+    return ensure_dependencies(project, svg=svg)
 
 
 def refresh_services():
@@ -241,7 +222,10 @@ def refresh_services():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--uninstall', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--uninstall', action='store_true')
+    mode.add_argument('--cli-only', action='store_true', help='只安装终端命令')
+    parser.add_argument('--svg', action='store_true', help='同时安装可选 SVG 支持')
     args = parser.parse_args(argv)
     if sys.platform != 'darwin':
         parser.error('Finder 快速操作安装器仅支持 macOS。')
@@ -252,7 +236,12 @@ def main(argv=None):
         print(f'已卸载 {len(paths)} 个自动安装的操作；同名旧操作已恢复（如有）。')
         print('项目、照片、Python 环境及其他快速操作均保留。')
     else:
-        ensure_environment(PROJECT_ROOT)
+        validate_command_target()
+        ensure_environment(PROJECT_ROOT, svg=args.svg)
+        command = install_command(PROJECT_ROOT)
+        if args.cli_only:
+            print(f'终端命令已安装：{command}，重新打开终端后可使用 watermark-tool。')
+            return
         paths = install_workflows(PROJECT_ROOT, services, backups)
         print('安装完成。在 Finder 选中一张或多张照片 → 右键 → 快速操作：')
         for path in paths:
@@ -260,6 +249,7 @@ def main(argv=None):
         print('添加水印：单张直接加水印，多张合成为一张水印照片。')
         print('批量添加水印：给选中的照片逐张添加水印，分别保存成片。')
         print(f'同名旧操作及已移除的旧入口备份目录：{backups}')
+        print('重新打开终端后也可运行：watermark-tool 照片路径。')
         print('项目移动或改名后，请在新位置重新双击安装。')
     refresh_services()
 

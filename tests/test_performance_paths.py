@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import unittest
+from tests import TestCase
 from unittest.mock import patch
 
 import numpy as np
@@ -20,7 +20,7 @@ from watermark_tool.raster import ColorSpec, read_raster
 from watermark_tool.renderer import make_canvas
 
 
-class PerformancePathsTests(unittest.TestCase):
+class PerformancePathsTests(TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -116,7 +116,7 @@ class PerformancePathsTests(unittest.TestCase):
             np.testing.assert_array_equal(raster.alpha, pixels[..., 3])
 
 
-class PersistentLocationTests(unittest.TestCase):
+class PersistentLocationTests(TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)

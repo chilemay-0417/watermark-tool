@@ -32,9 +32,10 @@ find_python_bin() {
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path.cwd() / "src"))
+from scripts.python_runtime import activate_project
+activate_project(Path.cwd())
 from watermark_tool.drawing import HEIC_SUFFIXES
-import pyspng
+import png
 
 suffixes = {Path(path).suffix.lower() for path in sys.argv[1:]}
 if suffixes & HEIC_SUFFIXES:

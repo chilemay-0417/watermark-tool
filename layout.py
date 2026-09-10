@@ -10,10 +10,10 @@ import sys
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-SRC_DIR = PROJECT_ROOT / "src"
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.python_runtime import activate_project  # noqa: E402
 
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+activate_project(PROJECT_ROOT)
 
 from watermark_tool.cli import (  # noqa: E402
     build_parser,

@@ -28,3 +28,7 @@ htmlcov/
 # Local Python runtime and review exports
 .venv/
 /output/
+
+# Project-local libraries for the existing Python interpreter
+.watermark-deps/
+.dev-packages/

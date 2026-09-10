@@ -45,7 +45,7 @@ class LogoDependencyTests(unittest.TestCase):
                   self.assertRaises(RuntimeError) as caught):
                 open_logo_image('custom.svg')
             self.assertIn('PNG', str(caught.exception))
-            self.assertIn('.[svg]', str(caught.exception))
+            self.assertIn('--svg', str(caught.exception))
             self.assertIn('Cairo 原生库', str(caught.exception))
             self.assertIs(caught.exception.__cause__, failure)
 

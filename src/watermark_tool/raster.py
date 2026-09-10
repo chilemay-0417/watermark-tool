@@ -440,17 +440,10 @@ def read_raster(path, *, source_metadata=None):
                 bits = 8
                 pixels, alpha = read_pillow_samples(image)
             elif image.format == "PNG":
-                import pyspng
+                from .png_decoder import decode_png16
 
-                # Native decoding retains full encoded 16-bit samples and avoids Python row lists.
                 color_type = chunks[b"IHDR"][9]
-                if color_type == 4:
-                    # libspng's GA16 output is unsupported; RGBA16 preserves both native planes.
-                    pixels = pyspng.lib.c.spng_decode_image_bytes(
-                        path.read_bytes(), pyspng.lib.c.SPNG_FMT_RGBA16,
-                    )
-                else:
-                    pixels = pyspng.load(path.read_bytes())
+                pixels = decode_png16(path, color_type)
                 bits = pixels.dtype.itemsize * 8
                 if pixels.ndim == 2:
                     pixels = pixels[..., None]

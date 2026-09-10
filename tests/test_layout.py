@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from tests import TestCase
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -92,7 +93,7 @@ def write_test_brand_rules(base_dir):
     )
 
 
-class LayoutFormattingTests(unittest.TestCase):
+class LayoutFormattingTests(TestCase):
     def setUp(self):
         self.enterContext(patch.dict(os.environ, WATERMARK_GPS_CACHE_DIR="off"))
 
@@ -654,7 +655,7 @@ class LayoutFormattingTests(unittest.TestCase):
             )
 
 
-class LayoutCalculationTests(unittest.TestCase):
+class LayoutCalculationTests(TestCase):
     def test_equal_margin_layout_uses_top_margin_as_photo_gap(self):
         cfg = LayoutConfig(
             photo_height=1850,
@@ -705,7 +706,7 @@ class LayoutCalculationTests(unittest.TestCase):
             validate_layout_params(1, cfg)
 
 
-class RenderingIntegrationTests(unittest.TestCase):
+class RenderingIntegrationTests(TestCase):
     def test_make_canvas_writes_image_with_expected_dimensions(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)

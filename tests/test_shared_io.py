@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from pathlib import Path
 import tempfile
-import unittest
+from tests import TestCase
 from unittest.mock import patch
 
 from PIL import Image, ImageFont, PngImagePlugin
@@ -18,7 +18,7 @@ from watermark_tool.preserved import png_chunk
 from watermark_tool.renderer import load_photo_items, make_canvas
 
 
-class SharedIOTests(unittest.TestCase):
+class SharedIOTests(TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

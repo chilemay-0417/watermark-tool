@@ -2,4 +2,5 @@ Pillow==12.2.0
 pillow-heif==1.3.0
 numpy==2.2.6; python_version < "3.11"
 numpy==2.4.0; python_version >= "3.11"
-pyspng==0.1.4
+pyspng==0.1.4; sys_platform != "darwin" or platform_machine != "x86_64"
+pypng==0.20220715.0
