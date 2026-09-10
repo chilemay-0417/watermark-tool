@@ -2,71 +2,37 @@
 
 [返回 README](../README.md) · [使用指南](usage.md)
 
-本文适用于 **2.2.3**。右键菜单「添加水印」和「批量添加水印」会读取项目中的配置、签名和 Logo，修改后下次处理生效，无需重新安装右键操作。命令行示例在已激活项目环境的终端中运行，见 [命令与参数](usage.md#命令与参数)。
+修改配置或素材后，下次处理照片时生效，无需重新安装右键操作。
 
-## 替换签名
+## 更换或隐藏签名
 
-默认签名文件是：
-
-```text
-assets/signature_400.jpg
-```
-
-保持文件名不变，直接替换这个文件即可。
-
-如果想改签名文件名，修改 [config.py](../src/watermark_tool/config.py)：
+用自己的签名图片替换 `assets/signature_400.jpg` 即可。推荐使用透明 PNG；换了文件名时，在 [config.py](../src/watermark_tool/config.py) 中同步修改：
 
 ```python
-SIGNATURE_FILE = "signature_400.jpg"
+SIGNATURE_FILE = "my_signature.png"
 ```
 
-也可以在命令行临时隐藏签名图片和替代文字：
+也可以在同一文件中改用文字签名，或完全隐藏签名：
+
+```python
+SHOW_SIGNATURE = False
+SIGNATURE_TEXT = "Shot by You"  # 改为 "" 即可隐藏签名
+```
+
+文字签名默认使用日期字体，含中文时使用黑体-简，整体旋转后放在照片右侧。需要临时更改文字或字号时，在项目目录运行：
 
 ```bash
-python3 layout.py photo.jpg --show-signature false --signature-text ""
+python3 layout.py photo.jpg --show-signature false --signature-text "Shot by You" --signature-font-size 42
 ```
 
-关闭签名图片后，如果想用一行文字替代签名：
+## 更换或添加品牌 Logo
 
-```bash
-python3 layout.py photo.jpg --show-signature false --signature-text "Shot by Chile"
-```
+更换已有 Logo：直接替换 `assets/` 中对应的图片，保持文件名不变。
 
-也可以调整替代文字字号：
+添加新品牌：
 
-```bash
-python3 layout.py photo.jpg --show-signature false --signature-text "Shot by Chile" --signature-font-size 42
-```
-
-替代文字会先放到一块高度为 `LOGO_HEIGHT`、宽度随文字长度变化的透明画布中居中，再整体旋转到品牌 logo 上方。英文默认和日期使用同一字族，默认是 Courier New Regular；如果文字包含中文，默认使用黑体-简（Heiti SC）避免缺字。签名到照片右侧、签名到 logo 的距离都按这块透明画布的边缘计算。
-
-## 添加新相机 Logo
-
-默认品牌规则写在：
-
-```text
-assets/brands.json
-```
-
-当前随仓库提供 logo 文件的品牌：
-
-```text
-Apple / Canon / Fujifilm / Hasselblad / Honor / Leica / Lumix / Nikon /
-Olympus / OnePlus / OPPO / Ricoh / Samsung / Sony / Vivo / Xiaomi
-```
-
-`brands.json` 里已经预置了更多常见品牌的匹配规则；如果对应 logo 文件还不存在，
-工具会自动跳过品牌 logo，只保留签名。添加新品牌 logo 时按下面步骤扩展。
-
-1. 把 logo 图片放进 `assets/`。
-
-例如：
-
-```text
-assets/Canon.png
-```
-
-2. 在 `assets/brands.json` 的 `brands` 列表中添加规则：
+1. 将 Logo 放进 `assets/`，推荐高度至少 400 像素的透明 PNG，也支持 JPG / WebP。
+2. 用文本编辑器打开 `assets/brands.json`，在 `brands` 列表中添加规则。例如：
 
 ```json
 {
@@ -76,38 +42,27 @@ assets/Canon.png
 }
 ```
 
-`display_name` 方便阅读；`logo` 是 `assets/` 里的文件名；`keywords` 会和照片 EXIF 的
-Make / Model 做不区分大小写的包含匹配。
+已有 Canon 规则，修改时直接编辑该项即可。新加品牌时替换名称、文件名和关键词；相邻规则之间用逗号分隔，最后一项后不加逗号。
 
-Logo 会自动缩放到统一高度，推荐使用高度至少 400 像素的透明 PNG，也支持 JPG / WebP。SVG 需另装 [可选依赖](usage.md#自定义-svg可选)。
+`logo` 必须与图片文件名一致。`keywords` 匹配照片拍摄信息（EXIF）中的厂商或型号，不区分大小写。匹配不到品牌或缺少图片时跳过 Logo，不影响签名。
 
-之后照片 EXIF 的 Make 或 Model 包含这些关键词时，就会自动使用 Canon logo。
+Logo 会自动缩放到统一高度。SVG 需要 [额外依赖](usage.md#自定义-svg可选)，新手直接使用 PNG 即可。
 
-如果你想把品牌规则文件放在其他位置，可以设置：
+## 多图合成的显示规则
 
-```bash
-export WATERMARK_BRANDS_FILE="/path/to/brands.json"
-```
+- 同一设备拍摄的照片：只在最右侧显示 Logo。
+- 不同设备拍摄的照片：每张照片分别匹配 Logo。
+- 签名只显示一次，位于最右侧照片旁；有 Logo 时放在 Logo 上方。
 
-## 多张照片合成时 Logo 的规则
+「批量添加水印」逐张导出，每张照片独立显示 Logo 和签名。
 
-以下规则适用于命令行多图拼接及右键「添加水印」的多选合成；右键「批量添加水印」逐张导出，每张都独立选择 Logo 和签名。
+## 使用其他素材目录（进阶）
 
-多图合成时，品牌 logo 和签名的规则是：
-
-- 单张照片按 EXIF 识别品牌；识别不到时只放签名。
-- 多张照片拍摄设备完全一致时，只在最右侧照片添加品牌 logo 和签名。
-- 多张照片拍摄设备不一致时，每张可识别照片都添加自己的品牌 logo。
-- 签名永远只添加在最右侧照片的品牌 logo 上方。
-
-这样可以避免多图合成时因为不同设备混选导致贴错 logo，同时保持签名只出现一次。
-
-## 资源目录
-
-默认资源目录是项目里的 `assets/`。如果你的 logo 和签名放在其他位置，可以设置：
+在终端中设置后，适用于从该终端启动的命令：
 
 ```bash
-export WATERMARK_ASSETS_DIR="/path/to/assets"
+export WATERMARK_ASSETS_DIR="/完整路径/assets"
+export WATERMARK_BRANDS_FILE="/完整路径/brands.json"
 ```
 
-这个目录里至少需要包含签名文件和 `brands.json`；品牌 logo 是否存在取决于照片 EXIF 能否匹配到对应品牌。
+第一个变量指定素材目录，第二个单独指定品牌规则文件。未指定第二个变量时，从素材目录读取 `brands.json`。

@@ -19,8 +19,12 @@ APPLESCRIPT
 
 find_python_bin() {
   local candidates=()
-  [[ -n "$PYTHON_BIN" ]] && candidates+=("$PYTHON_BIN")
-  candidates+=("$SCRIPT_DIR/.venv/bin/python" "/opt/homebrew/bin/python3" "/usr/local/bin/python3" "python3" "/usr/bin/python3")
+  if [[ -n "$PYTHON_BIN" ]]; then
+    candidates=("$PYTHON_BIN")
+  else
+    candidates=("/usr/local/bin/python3" "python3" "/opt/homebrew/bin/python3"
+                "$SCRIPT_DIR/.venv/bin/python")
+  fi
   local candidate resolved
   for candidate in "${candidates[@]}"; do
     resolved="$(command -v "$candidate")" || continue
@@ -55,7 +59,7 @@ initialize_finder() {
     return 1
   fi
   if ! find_python_bin "$@"; then
-    show_dialog $'找不到能处理所选照片的 Python。\n\n请运行 python3 -m pip install -r requirements.txt，或通过 WATERMARK_PYTHON_BIN 指定 Python。'
+    show_dialog $'找不到能处理所选照片的 Python。\n\n请重新双击「右键操作安装.command」，检查依赖并更新 Python 路径。'
     return 1
   fi
 }

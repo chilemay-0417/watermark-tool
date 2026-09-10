@@ -2,8 +2,10 @@
 setup_finder() {
   local operation="$1"
   local candidate resolved setup_python=""
-  local candidates=("${WATERMARK_PYTHON_BIN:-}" "$SCRIPT_DIR/.venv/bin/python"
-                    "/opt/homebrew/bin/python3" "/usr/local/bin/python3" "python3")
+  local candidates=("/usr/local/bin/python3" "python3" "/opt/homebrew/bin/python3")
+  if [[ -n "${WATERMARK_PYTHON_BIN:-}" ]]; then
+    candidates=("$WATERMARK_PYTHON_BIN")
+  fi
   if [[ "$(uname -s)" != "Darwin" ]]; then
     print -u2 '此安装器仅支持 macOS。'
     return 1

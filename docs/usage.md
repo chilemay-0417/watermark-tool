@@ -1,258 +1,182 @@
 # 使用指南
 
-[返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志与升级说明](../CHANGELOG.md)
+[返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-本文适用于 **2.2.3**。快速上手见 [README](../README.md#安装与使用)，版本变化见 [更新日志](../CHANGELOG.md)。
+## 安装与首次使用
 
-## 在 Finder 中右键使用
-
-### 首次使用：准备 Mac 环境
-
-**推荐 Python + pip**。内置 Logo 使用 PNG，普通安装无需 Cairo、Homebrew 或 Conda；只有自定义 SVG 才需要额外依赖。
-
-#### 方案一：Python + pip
-
-1. 从 [Python 官网](https://www.python.org/downloads/macos/) 下载标准 macOS `.pkg` 安装包（Python 3.10+），双击安装；按安装完成提示运行「Install Certificates.command」。已有可用 Python 时可跳过，详见 [Python 官方说明](https://docs.python.org/3/using/mac.html)。
+1. 安装 [Python 3.10 或更新版本](https://www.python.org/downloads/macos/) 的 macOS `.pkg` 安装包；已有可用版本可跳过。
 2. 下载并解压完整项目，放到「图片」等固定位置。
-3. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待「安装完成」。安装器创建或复用项目 `.venv`，通过 pip 安装基础依赖并配置两个右键入口。
+3. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待“安装完成”，按回车关闭窗口。首次安装依赖需要联网。
+4. 在 Finder 中选中照片 → 右键 → **快速操作**，选择所需功能。
 
-只使用命令行时，可在项目目录手动安装：
+安装器直接使用已有 Python 安装依赖，不新建环境，也无需激活环境。内置 Logo 可直接使用，无需安装 Conda、Homebrew 或 Cairo。
 
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install .
-```
+## 右键添加水印
 
-手动安装不会注册右键操作；Finder 用户直接双击安装文件即可。
+| 需要做什么 | 选择方式 | 快速操作 |
+| --- | --- | --- |
+| 单张加水印 | 选一张照片 | **添加水印** |
+| 多张拼成一张 | 选多张照片 | **添加水印** |
+| 多张分别导出 | 选多张照片 | **批量添加水印** |
 
-#### 方案二：Conda（无需 Homebrew）
+成片保存在原图目录，合成时使用第一张输入照片的目录。文件名以 `_watermark.jpg` 结尾，重名自动追加序号，原图保留。添加水印完成后会定位成片；批量处理中某张失败时继续处理其余照片，最后打开错误日志。
 
-已有 Conda 的用户可在项目目录创建环境，再双击安装器；无需专门为本工具安装 Conda。
+默认使用贴合照片的 `adaptive` 布局。要修改布局、签名或地点显示，见 [默认设置](#修改默认设置)；临时导出 PNG 等需求见 [命令行](#命令与参数)。
 
-```bash
-conda create --prefix ./.venv --override-channels -c conda-forge python=3.14 pip -y
-```
+## 升级、移动与卸载
 
-安装器会复用环境并用 pip 安装基础依赖，日常右键使用无需激活。若 `.venv` 已被其他环境占用，先改名备份，不要叠装。Conda 环境移动后需重建，详见 [Conda 环境说明](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)。
+- **升级**：备份自己的配置、签名、Logo 和品牌规则，更新完整项目并迁移个人设置，再双击安装文件。不要直接用旧 `config.py` 覆盖新配置。
+- **移动或改名**：从项目的新位置重新双击安装文件。
+- **卸载**：双击 [右键操作卸载.command](../右键操作卸载.command)。照片、项目和 Python 保留。
+- **菜单排序**：在快速操作的「自定…」中调整；顺序由 macOS 管理。
 
-#### 自定义 SVG（可选）
+重复安装不会增加重复入口。安装器会备份可识别的旧操作；卸载时恢复曾替换的原始同名操作，其他已迁移的旧入口不自动恢复。备份保存在 `~/Library/Application Support/watermark-tool/finder-backups`。
 
-推荐将自定义 Logo 保存为高清透明 PNG，无需额外依赖。保留 SVG 时，在项目目录为运行环境安装可选支持：
-
-```bash
-.venv/bin/python -m pip install ".[svg]"
-```
-
-CairoSVG 还需要原生 Cairo 库，pip 不负责提供。macOS 已使用 Homebrew 时可执行 `brew install cairo libffi`；使用上述 Conda 环境时，可先执行 `conda install --prefix ./.venv --override-channels -c conda-forge cairo libffi -y`，再执行上面的 pip 命令。平台要求见 [CairoSVG 安装说明](https://cairosvg.org/documentation/#installation)。
-
-若提示缺少 CairoSVG、`cairo`、`libcairo` 或 `libffi`，确认依赖安装在项目 `.venv` 中且原生库可加载，或改用 PNG 并更新 `assets/brands.json` 中的文件名。基础安装不会检查 SVG 支持，可用 `.venv/bin/python -c "import cairosvg"` 单独验证。
-
-### 添加水印：单张处理或多张合成
-
-在 Finder 中选中照片 → 右键 →「快速操作」→ **添加水印**。
-
-- 选中一张：给这张照片添加水印，生成一张成片。
-- 选中多张：按项目当前布局设置，将照片拼接为一张水印成片。
-- 成片保存在第一张输入照片所在目录，文件名组合输入照片名称并加上 `_watermark.jpg`；重名自动追加序号，原图保留。
-- 完成后会在 Finder 中定位成片。张数和布局限制沿用项目配置，与命令行合成一致。
-
-### 批量添加水印：逐张导出
-
-在 Finder 中选中多张照片 → 右键 →「快速操作」→ **批量添加水印**。
-
-- 每张照片各自生成成片，保存在各自原图目录，名称为 `原文件名_watermark.jpg`；重名自动追加序号，原图保留。
-- 单张失败会继续处理其余照片，并在完成后打开错误日志。
-- 单选时也可使用，只处理这张照片。
-
-两个操作运行时均无需打开终端。需要临时选择 PNG 或其他参数时，使用下方 [命令行](#命令与参数)。
-
-### 调整菜单顺序
-
-右键 →「快速操作」→「自定…」，进入 Finder 扩展列表，将「添加水印」拖到「批量添加水印」上方，点击「完成」后重新打开右键菜单。顺序由 macOS 管理，安装器不强制调整。参见 [Finder 快速操作排序说明](https://macosxautomation.com/automator/services/extensions.html)。
-
-### 升级、移动与旧入口迁移
-
-更新完整项目后，重新双击「右键操作安装.command」即可。项目移动或改名后，也应从新位置重新安装，让操作指向新的项目路径。Conda 环境不应直接搬移：移动项目后先将 `.venv` 改名备份，再按 Conda 方案重新创建。
-
-升级后，「添加水印」多选会合成一张；逐张导出请改用「批量添加水印」。安装器会备份移除可识别的旧「照片加水印」「批量加水印」「合成水印照片」，保留两个新入口，重复安装不会生成重复项。
-
-工作流程位于 `~/Library/Services/`，旧操作备份位于 `~/Library/Application Support/watermark-tool/finder-backups`。无法确认属于本工具的旧入口会保留；两个安装目标存在非托管同名操作时，先备份再替换。
-
-### 卸载右键操作
-
-双击 **[右键操作卸载.command](../右键操作卸载.command)**，等待卸载完成后按回车关闭窗口。
-
-卸载移除本工具管理的两个入口，并恢复曾替换的原始同名操作（如有）。迁移时移除的其他旧入口留在备份目录，不自动恢复。照片、项目、Python 环境和其他快速操作均保留；卸载仍需可用的 Python，但不安装图片依赖。
-
-### 环境要求与排错
-
-工具需要 Python 3.10+，基础依赖由安装器通过 pip 安装。首次配置见 [环境准备](#首次使用准备-mac-环境)。
+## 安装排错
 
 | 情况 | 处理方法 |
 | --- | --- |
-| 双击脚本被系统拦截 | 根据 macOS 显示的安全提示允许打开可信的项目脚本，再重新双击；安装器不绕过系统权限。 |
-| 右键菜单中没有操作 | 确认已选中照片，关闭并重新打开右键菜单；在快速操作的「自定」或系统设置的 Finder 扩展中确认操作已启用，必要时重新登录。 |
-| 找不到脚本或项目移动了 | 确认保留完整项目文件夹，从实际项目位置重新双击安装器。 |
-| 找不到 Python | 安装 Python 3.10+，再双击水印安装器。 |
-| 自定义 SVG 无法读取 | 按 [可选 SVG 支持](#自定义-svg可选) 安装依赖，或改用 PNG。 |
-| 提示 `conda: command not found` | 完成 Miniforge 安装和终端初始化，重新打开终端后运行 `conda --version`。 |
-| pip 提示 `externally-managed-environment` | 直接双击水印安装器，让它使用专用环境；不要强行向受管理的系统 Python 安装。 |
-| 下载依赖失败 | 检查网络并重新双击安装器；验证失败时不会替换已有右键操作。 |
-| `.venv` 无效或不完整 | 将项目中的 `.venv` 文件夹改名备份后重新双击安装，安装器会创建新环境。 |
-| 提示没有收到照片 | 先在 Finder 中选中照片，再从右键菜单调用「添加水印」。 |
-| 无法访问照片或保存目录 | 按 macOS 提示允许相应目录的访问，并确认照片所在目录可写。 |
-| 同名操作不是普通目录或备份不可用 | 查看安装器指出的具体路径；保留备份并检查该路径后重试，避免直接删除其他工具的文件。 |
+| 双击文件被系统拦截 | 按 macOS 的安全提示允许打开可信的项目脚本。 |
+| 找不到 Python | 安装上方链接中的 Python 3.10+，再双击安装文件。 |
+| pip 提示 `externally-managed-environment` 或没有写入权限 | 改用 Python 官网的 macOS 安装包，再重新安装右键操作；有多个 Python 时，按下方方法指定。 |
+| 下载依赖失败 | 检查网络后重试。 |
+| 提示证书验证失败（`CERTIFICATE_VERIFY_FAILED`） | 使用 Python 官网安装包时，打开「应用程序 → Python 3.x」，双击 `Install Certificates.command`，完成后重试。 |
+| 右键菜单没有操作 | 先选中照片，在快速操作「自定…」或系统设置的 Finder 扩展中启用；仍未显示时重新登录。 |
+| 项目或 Python 路径失效 | 保留完整项目，重新双击安装文件。 |
+| 无法读取照片或保存 | 按 macOS 提示允许访问，确认照片目录可写。 |
+| 提示备份或同名路径异常 | 查看报错中的路径，保留备份，勿直接删除其他工具的文件。 |
 
-### 修改默认设置
+依赖安装或验证失败时，已有右键操作保持不变。电脑有多个 Python 时，可在项目目录指定安装所用的解释器；已有 Conda 用户也可指定现成的 Python：
 
-右键操作使用 [config.py](../src/watermark_tool/config.py) 的默认值，保存后下次运行生效，无需重新安装。例如：
+```bash
+WATERMARK_PYTHON_BIN="/完整路径/python3" /bin/zsh 右键操作安装.command
+```
+
+安装窗口会显示所用 Python 的路径，右键操作会记住该路径。
+
+## 修改默认设置
+
+用文本编辑器打开 [config.py](../src/watermark_tool/config.py)，修改并保存，下次右键处理即生效：
 
 ```python
-OUTPUT_MODE = "adaptive"      # video / adaptive / original
+OUTPUT_MODE = "adaptive"      # 贴合照片；video 为固定 4K；original 保留原尺寸
 INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 ```
 
-签名和 Logo 的替换见 [定制说明](customization.md)。
+更换签名、文字签名和品牌 Logo 见 [定制说明](customization.md)。
 
 ## 命令与参数
 
-本节仅供需要自定义导出参数的进阶用户阅读，日常右键使用可跳过。完成双击安装后，在终端进入项目目录。pip 默认环境可按下面方式激活；Conda 方案改用 `conda activate ./.venv`。以下命令中的 `python3` 将使用项目依赖：
+日常右键使用可跳过本节。打开终端，输入 `cd `（末尾有空格），将项目文件夹拖入终端，再按回车。
+
+只用命令行时，在项目目录安装依赖一次即可：
 
 ```bash
-cd "/完整路径/watermark_tool"
-source .venv/bin/activate
+python3 -m pip install -r requirements.txt
 ```
 
-```bash
-# 单张照片：紧凑边框
-python3 layout.py photo.jpg --output-mode adaptive
+下列 `python3` 应使用安装依赖时的同一个 Python；有多个版本时，可替换为安装窗口显示的完整路径。将 `photo.jpg` 等示例名称换成自己的照片路径，路径含空格时加双引号。
 
-# 两张照片：合成为 16:9 视频素材（按输入顺序排列）
+```bash
+# 单张加水印，默认贴合照片
+python3 layout.py photo.jpg
+
+# 多张合成为 16:9 视频素材（按输入顺序排列）
 python3 layout.py photo1.jpg photo2.jpg --output-mode video
 
-# 多张照片：合成长图
-python3 layout.py photo1.jpg photo2.jpg photo3.jpg --output-mode adaptive
+# 多张分别导出
+python3 layout.py --batch photo1.jpg photo2.jpg
 
-# 保留原始尺寸并导出 PNG
+# 保留照片原始尺寸，导出 PNG
 python3 layout.py photo.png --output-mode original -o output.png
-
-# 快速无损 PNG；更看重体积时改为 small
-python3 layout.py photo.png --output-mode original --png-compression fast -o output.png
-
-# 逐张批量导出，关闭地点联网查询
-python3 layout.py --batch photo1.jpg photo2.jpg --output-mode original --include-gps-location false
-
-# 使用文字签名；文字设为空字符串可完全隐藏签名
-python3 layout.py photo.jpg --show-signature false --signature-text "Shot by You"
 ```
 
-**命令行多张输入默认合成一张，添加 `--batch` 才会逐张导出。** `--batch` 不能与 `-o` 同用，默认导出 JPEG。
+**多张输入默认合成一张；加 `--batch` 才会逐张导出。** `--batch` 不能与 `-o` 同用。
 
-默认文件名为 `原文件名_watermark.jpg`；合成时连接各照片文件名，过长时缩短为首张名称加其余张数。文件保存在第一张输入照片的目录，重名时追加序号。`-o` 仅支持 `.jpg`、`.jpeg`、`.png`，会替换同名的已有成片，但拒绝覆盖任何输入原图；编码失败不会损坏已有输出。
+自动命名的成片不会覆盖已有文件。`-o` 可指定 `.jpg`、`.jpeg` 或 `.png`，会替换同名成片，但不能覆盖输入原图；保存失败时保留已有输出。
 
 | 参数 | 用途 | 默认值 |
 | --- | --- | --- |
-| `--output-mode` | `video` 固定 4K；`adaptive` 调整宽度；`original` 保留原尺寸 | `adaptive`，跟随 `config.py` 的 `OUTPUT_MODE` |
-| `--height` | 照片高度（像素）；不影响 original | `1850` |
-| `--jpeg-quality` | JPEG 质量 1～100；不影响 PNG | `100` |
-| `--png-compression` | PNG 无损压缩：`fast` 快速、`balanced` 均衡、`small` 较小文件；不影响 JPEG | `balanced` |
-| `--include-gps-location` | 是否发送经纬度联网查询地点 | `true` |
-| `--color-mode` | `preserve` 保留来源色域；`srgb` 转为 8 位 SDR sRGB | `preserve` |
-| `--metadata` | `safe` 保留筛选后的元数据；`none` 删除非色彩元数据 | `safe` |
-| `--preserve-gps` | safe 模式下保留单张成片的 EXIF GPS | `false` |
+| `--output-mode` | `adaptive` 贴合照片；`video` 固定 4K；`original` 保留原尺寸 | `adaptive` |
+| `--height` | 照片高度，单位为像素；不影响 original | `1850` |
+| `--jpeg-quality` | JPEG 质量，1～100 | `100` |
+| `--png-compression` | PNG 无损压缩：`fast` 快、`balanced` 均衡、`small` 体积较小 | `balanced` |
+| `--include-gps-location` | 是否联网查询照片地点 | `true` |
+| `--color-mode` | `preserve` 保留来源色域；`srgb` 便于普通分享 | `preserve` |
+| `--metadata` | `safe` 保留筛选后的拍摄信息；`none` 删除非色彩元数据 | `safe` |
+| `--preserve-gps` | 是否在 safe 模式下保留单图 EXIF GPS | `false` |
 | `--show-signature` | 是否显示签名图片 | `true` |
-| `--signature-text` | 关闭签名图片后显示的文字，空字符串表示隐藏 | `哈哈哈` |
+| `--signature-text` | 关闭签名图片后的替代文字；`""` 表示隐藏 | `哈哈哈` |
 
-日期、字体、线条和间距等参数见 `python3 layout.py --help`；长期默认值在 [config.py](../src/watermark_tool/config.py) 中修改。
+以上为随附默认值，修改 `config.py` 后命令行也会使用新值。完整参数见 `python3 layout.py --help`。
 
-## 排版规则
+## 布局与格式
 
-- **video**：固定 3840 × 2160，支持 1～3 张照片，左右留白与图间距相等。空间不足时自动降低照片高度，日期字号和横线长度保持指定值。
-- **adaptive**：按指定高度缩放照片，画布宽度随内容增长。单图使用紧凑边框；多图的图间距和左右留白均为上留白的 1.8 倍。
-- **original**：保留旋正后的原始像素尺寸，顶部对齐，画布随照片、水印和日期扩展；`--height` 不参与缩放。搭配 PNG 可避免照片重采样和 JPEG 重编码。
+- **adaptive**：按指定高度缩放，画布宽度随照片调整。适合单图分享和多图长拼接。
+- **video**：固定 3840 × 2160，支持 1～3 张，左右留白与图间距相等。水印空间不足时自动降低照片高度。
+- **original**：保留旋正后的原始像素尺寸，照片顶部对齐，画布随内容扩展。搭配 PNG 可避免缩放和 JPEG 重编码。
 
-## 相机与图片格式
+支持 JPEG、PNG、WebP、HEIC / HEIF，仅处理 SDR。RAW、TIFF、HDR 请先在照片编辑软件中转为 SDR PNG 或 JPEG；Logo 和签名也不支持 TIFF。
 
-支持 JPEG、PNG、WebP 和 HEIC / HEIF（通过 `pillow-heif` 读取），仅处理 SDR。不支持 RAW、TIFF 或 HDR，请先在照片编辑软件中导出 SDR PNG 或 JPEG。Logo 和签名素材也不支持 TIFF。
+内置品牌：Canon、Nikon、Sony、Fujifilm、Leica、Hasselblad、Ricoh、Lumix、Olympus、Apple、Honor、Samsung、OnePlus、OPPO、vivo、Xiaomi。按拍摄信息匹配，缺少信息或素材时跳过 Logo。
 
-工具根据 EXIF 中的厂商和型号匹配 Logo，当前附带以下品牌素材：
+## 画质、拍摄信息与地点
 
-| 相机品牌 | 手机品牌 |
-| --- | --- |
-| Canon、Nikon、Sony、Fujifilm | Apple、Honor、Samsung、OnePlus |
-| Leica、Hasselblad、Ricoh、Panasonic Lumix | OPPO、vivo、Xiaomi |
-| Olympus / OM System（使用 Olympus 标志） | |
+默认导出 JPEG 100%，保留来源 RGB 色域。JPEG 仍是有损格式；需要保留细节时用 `original` 加 PNG，缩放和色彩转换仍可能改变像素。
 
-品牌匹配不代表所有机型都经过验证。没有 EXIF、未匹配到品牌或缺少 Logo 时会跳过标志，仍可显示签名。添加品牌及更换签名见 [定制说明](customization.md)。
+- **普通分享**：`--color-mode srgb` 转为常见的 8 位 sRGB；广色域成片需在支持 ICC 的软件中查看。
+- **高位深与透明度**：保留色域模式下，高位深来源或混合色域导出 PNG 自动使用 16 位。PNG 保留透明度；JPEG 为 8 位，透明区域合成到背景上。
+- **拍摄信息**：单图默认保留筛选后的参数、作者和版权等信息，去除旧缩略图与设备序列号；多图仅保留共同信息。`--metadata none` 删除非色彩元数据。
+- **地点隐私**：默认将照片中的经纬度发送给 Nominatim 查询地名，照片在本地处理。用 `--include-gps-location false` 关闭查询；成片默认不保留 EXIF GPS，需单独用 `--preserve-gps true` 开启。
 
-## 色彩与元数据
+元数据开关不会隐藏已绘制到成片上的日期、参数或地点文字。
 
-默认以 JPEG 100%、4:4:4 色度采样输出，保留来源 RGB 色域。JPEG 仍为有损编码，提高质量不等于按比例提高画质；需要避免照片缩放和 JPEG 重编码时，使用 `--output-mode original -o output.png`。
+<details>
+<summary>色彩与元数据的详细规则</summary>
 
-- **色域**：相同 RGB 色彩定义沿用来源色域；混合 SDR 色域转为 ProPhoto RGB。广色域成片需在支持 ICC 的软件中查看，普通分享可用 `--color-mode srgb`。
-- **位深与透明度**：保留色域模式下，高位深来源或混合色域合成导出 PNG 时自动使用 16 位；PNG 保留照片透明度，JPEG 降为 8 位并将透明区域合成到背景上。sRGB 模式输出为 8 位。
-- **保真范围**：相同 RGB 定义、无缩放的 PNG 照片区域可保留解码后的原始 RGB 样本；缩放、混合色域转换仍会改变像素。未标记色域的 RGB / 灰度按 sRGB 解释。
-- **不支持的输入**：检测到 HDR、损坏或不匹配的 ICC、不支持的色彩标记时会报错。带有效 ICC 的 CMYK / Lab 图片可用 `--color-mode srgb` 转换。
-- **单图元数据**：默认保留筛选后的拍摄参数、作者、版权、DPI，以及 XMP / IPTC 中的标题、描述、关键词和评级等；重建尺寸及方向，移除旧缩略图、MakerNote 和设备序列号。
-- **损坏字段**：某个 EXIF 子 IFD 无法解析时会发出警告并跳过该部分，其他可读取的相机和拍摄字段继续使用。
-- **多图元数据**：仅保留共同的作者、版权及筛选后的共同 XMP，不指定单一相机、日期或位置。`--metadata none` 删除非色彩元数据，仍保留正确显示所需的色彩配置。
+相同 RGB 色彩定义沿用来源色域；混合 SDR 色域转为 ProPhoto RGB。未标记色域的 RGB / 灰度按 sRGB 解释。相同 RGB 定义、无缩放的 PNG 照片区域可保留解码后的原始 RGB 样本。
 
-GPS 地点查询默认开启：有坐标时会将经纬度发送给 Nominatim（OpenStreetMap）查询地名，照片文件在本地处理。`--include-gps-location false` 关闭联网；`--preserve-gps true` 控制 safe 模式下单图 EXIF GPS 的导出，两者独立。元数据开关不会隐藏已绘制到图片上的文字。
+HDR、损坏或不匹配的 ICC、不支持的色彩标记会报错。带有效 ICC 的 CMYK / Lab 图片可用 `--color-mode srgb` 转换。
 
-```bash
-# 分享为 sRGB JPEG
-python3 layout.py photo.jpg --color-mode srgb -o share.jpg
+单图保留筛选后的 EXIF、DPI 及 XMP / IPTC 标题、描述、关键词、评级等，重建尺寸与方向，移除 MakerNote；某个 EXIF 子 IFD 损坏时警告并跳过该部分。多图仅保留共同作者、版权和筛选后的共同 XMP，不指定单一相机、日期或位置。色彩配置不受 `--metadata none` 影响。
 
-# 保留单图 EXIF GPS，同时关闭地点联网查询
-python3 layout.py photo.jpg --preserve-gps true --include-gps-location false
+</details>
 
-# 不保留非色彩元数据，也不联网查询地点
-python3 layout.py photo.jpg --metadata none --include-gps-location false
-```
+## 处理问题与速度
 
-## 使用限制与排错
+- **没有日期或参数**：检查原图是否保留拍摄信息。日期只取有效的 EXIF 拍摄时间，不使用文件修改时间；焦距优先显示 35mm 等效值。
+- **文字拥挤**：减小字号或间距，或将 video 改为 adaptive / original。字体缺失时用 `--font`、`--location-font` 指定字体文件。
+- **图片过大**：多图合成受内存限制。JPEG 单边最多 65,500 像素，超出请用 PNG；大量照片可用 `--batch` 分别导出。
+- **处理较慢**：无需地点文字时关闭联网查询；PNG 可选 `--png-compression fast`，只改变压缩速度和体积，不降低画质。
 
-- **排版拥挤**：减小高度、字号或间距，或将 video 改为 adaptive / original。日期和横线保持指定大小，窄图仍需检查效果；水印超出上下边界时程序会报错。
-- **超长图片**：adaptive / original 的实际大小受内存和图片格式限制。JPEG 单边最多 65,500px，超出时使用 PNG；大批量照片宜用 `--batch` 分别导出。
-- **拍摄参数**：焦距优先使用有效的 35mm 等效焦距，缺失时用实际焦距。快门按倒数或小数秒显示，如 `1/125s`、`0.8s`。
-- **拍摄日期**：仅使用有效的 EXIF `DateTimeOriginal`，显示到秒，不显示小数秒或时区，不转换到电脑时区。缺失或无效时省略，不使用文件修改时间。
-- **字体缺失**：默认查找系统字体，可通过 `--font`、`--location-font` 指定字体文件。
-- **处理较慢**：耗时取决于尺寸、格式、硬件和网络。无需地点文字时可关闭 GPS 查询；素材缓存和同进程批处理有助于减少重复处理。
+命令行显示处理进度，`--quiet` 可隐藏。Finder 使用系统通知提示进度；是否显示取决于通知权限和专注模式。
 
-## 缓存与运行速度
+### 缓存与运行速度
 
-macOS 素材缓存位于 `~/Library/Caches/watermark-tool/assets`，只保存处理后的位图 Logo 和签名，不保存照片或地点数据。更换素材后自动重新生成；可删除该目录清理缓存，下次运行会重建。GPS 成功查询结果另存于 `~/Library/Caches/watermark-tool/gps/locations.sqlite3`，有效期 30 天，最多保留 2048 条，跨进程及 Finder 再次运行可复用。地点缓存保存地名、有效期和经纬度（四舍五入到 5 位小数）与语言组成的键的哈希，不保存照片；哈希不等于加密。删除 `gps` 目录即可清理磁盘地点缓存，已运行进程的内存缓存会在退出后清除。查询失败或空结果不写入磁盘，仅在当前进程内暂存 60 秒。缓存不可写或损坏时仍可继续查询和导出。
+素材缓存位于 `~/Library/Caches/watermark-tool/assets`，地点缓存位于同级 `gps` 目录，均不保存照片。更换素材后自动刷新。地点结果保留 30 天、最多 2048 条；坐标键的哈希不等于加密。删除对应目录即可清理，缓存损坏或不可写不影响继续处理。
 
 ```bash
-# 指定缓存目录，或关闭磁盘缓存
-WATERMARK_CACHE_DIR=/path/to/cache python3 layout.py photo.jpg
+# 关闭所有磁盘缓存
 WATERMARK_CACHE_DIR=off python3 layout.py photo.jpg
 
-# 单独关闭 GPS 磁盘缓存（仍允许联网）；也可指定专用目录
+# 只关闭地点磁盘缓存；仍允许联网查询
 WATERMARK_GPS_CACHE_DIR=off python3 layout.py photo.jpg
-
-# 测量本机首次及后续处理耗时，结果保存到指定目录
-python3 scripts/benchmark_render.py --output-dir output/benchmark --iterations 3
 ```
 
-`WATERMARK_CACHE_DIR` 指定素材缓存目录时，GPS 默认位于该目录的 `gps` 子目录；`WATERMARK_GPS_CACHE_DIR` 可单独指定地点目录。`WATERMARK_CACHE_DIR=off` 同时关闭两类磁盘缓存。关闭地点联网查询仍使用 `--include-gps-location false`，该开关也会跳过地点缓存读取。
+这两个变量也可设为完整目录路径。关闭联网查询仍用 `--include-gps-location false`，同时跳过地点缓存读取。
 
-PNG 三种压缩设置均为无损，解码后的像素、位深、透明度和元数据一致。默认 `balanced` 沿用压缩等级 6，`fast` 使用等级 1，`small` 使用等级 9；体积差异取决于图片内容，不保证每张图都有明显缩小。JPEG 不受此参数影响。
+## 自定义 SVG（可选）
 
-命令行实时显示“正在准备第几张”“正在查询地点”“正在处理第几张”和“正在保存”，批量模式另显示总张数进度。`--quiet` 隐藏这些正常进度及摘要。Finder 脚本默认以 macOS 通知显示阶段提示（最多每 2 秒一次），完整进度同时写入运行日志；较快的阶段可能被合并，通知显示还取决于系统通知权限和专注模式。阶段通知的高级配置见 [开发说明](development.md#finder-双击安装器)。
-
-## 支持与开发
-
-遇到问题可提交 [GitHub Issue](https://github.com/chilemay-0417/watermark-tool/issues)，附上系统和 Python 版本、输入格式、复现步骤及完整报错；Finder 失败时会自动打开错误日志。
-
-内部模块职责、辅助函数导入迁移、安装器及验证记录见 [开发说明](development.md)。升级后重新双击安装器即可更新右键操作。
-
-开发检查：
+新手建议使用透明 PNG。确需 SVG 时，用运行工具的同一个 Python 安装：
 
 ```bash
-python3 -m pip install -e ".[dev]"
-python3 -m unittest discover
-python3 -m ruff check .
+python3 -m pip install ".[svg]"
 ```
 
-README 直接使用 `samples/` 中的展示样张。样张已缩小尺寸并压缩，不用于评估原始画质；工具实际导出仍由所选参数决定。
+还需安装原生 Cairo 库；已有 Homebrew 可运行 `brew install cairo libffi`，已有 Conda 可在当前使用的环境运行 `conda install -c conda-forge cairo libffi`。具体要求见 [CairoSVG 文档](https://cairosvg.org/documentation/#installation)。
+
+用 `python3 -c "import cairosvg"` 检查依赖是否可用。若仍报错，可将 SVG 转为 PNG，并更新 `assets/brands.json` 的文件名。
+
+## 获取帮助
+
+提交 [GitHub Issue](https://github.com/chilemay-0417/watermark-tool/issues) 时，附上系统、Python 版本、复现步骤及完整报错。Finder 处理失败时会打开错误日志。开发和测试方法见 [开发说明](development.md)。

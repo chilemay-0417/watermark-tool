@@ -109,6 +109,8 @@ class FinderInstallTests(unittest.TestCase):
             info, document = installer.workflow_documents(self.project, name, script, kind)
             # Simulate old hand-created workflows without our ownership marker.
             info.pop(installer.MANAGED_KEY)
+            parameters = document['actions'][0]['action']['ActionParameters']
+            parameters['COMMAND_STRING'] = parameters['COMMAND_STRING'].splitlines()[-1]
             (contents / 'Info.plist').write_bytes(plistlib.dumps(info))
             (contents / 'document.wflow').write_bytes(plistlib.dumps(document))
         self.install()
@@ -207,37 +209,69 @@ class FinderInstallTests(unittest.TestCase):
             installer.main([])
         install.assert_not_called()
 
-    def test_environment_validation_reuses_project_venv(self):
-        environment = self.project / '.venv'
-        subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(environment)],
-                       check=True, capture_output=True)
-        original_run = subprocess.run
+    def test_install_uses_existing_python_without_creating_environment(self):
+        for preexisting in (False, True):
+            with self.subTest(preexisting=preexisting):
+                environment = self.project / '.venv'
+                if preexisting:
+                    environment.mkdir()
+                    (environment / 'user-data').write_text('keep')
+                with patch.object(installer.subprocess, 'run') as calls:
+                    installer.ensure_environment(self.project)
+                self.assertEqual(calls.call_count, 2)
+                commands = [call.args[0] for call in calls.call_args_list]
+                self.assertTrue(all(command[0] == sys.executable for command in commands))
+                self.assertEqual(commands[0][1:4], ['-m', 'pip', 'install'])
+                self.assertNotIn('venv', commands[0])
+                self.assertEqual(environment.exists(), preexisting)
+                if preexisting:
+                    self.assertEqual((environment / 'user-data').read_text(), 'keep')
 
-        def run(command, **kwargs):
-            # Keep the real interpreter/prefix check; avoid installing dependencies in a unit test.
-            if command[1:3] == ['-m', 'pip'] or 'import watermark_tool' in command[-1]:
-                return subprocess.CompletedProcess(command, 0)
-            return original_run(command, **kwargs)
+    def test_pip_failure_stops_before_validation_or_workflow_changes(self):
+        failure = subprocess.CalledProcessError(1, ['python', '-m', 'pip'])
+        with (patch.object(installer.sys, 'platform', 'darwin'),
+              patch.object(installer.subprocess, 'run', side_effect=failure) as calls,
+              patch.object(installer, 'install_workflows') as install,
+              self.assertRaisesRegex(RuntimeError, '依赖安装失败')):
+            installer.main([])
+        self.assertEqual(calls.call_count, 1)
+        install.assert_not_called()
+        self.assertFalse((self.project / '.venv').exists())
 
-        with patch.object(installer.subprocess, 'run', side_effect=run) as calls:
-            installer.ensure_environment(self.project)
-        self.assertEqual(calls.call_count, 3)
-        self.assertTrue((environment / 'pyvenv.cfg').is_file())
+    def test_import_failure_does_not_change_workflows(self):
+        failure = subprocess.CalledProcessError(1, ['python', '-c', 'import'])
+        with (patch.object(installer.sys, 'platform', 'darwin'),
+              patch.object(installer.subprocess, 'run', side_effect=[None, failure]),
+              patch.object(installer, 'install_workflows') as install,
+              self.assertRaisesRegex(RuntimeError, '依赖验证失败')):
+            installer.main([])
+        install.assert_not_called()
 
-    def test_conda_marker_does_not_allow_an_unrelated_python(self):
-        environment = self.project / '.venv'
-        (environment / 'bin').mkdir(parents=True)
-        (environment / 'conda-meta').mkdir()
-        (environment / 'bin/python').symlink_to(Path(sys.executable).resolve())
-        original_run = subprocess.run
+    def test_workflow_keeps_selected_python_with_special_path_characters(self):
+        selected = str(self.root / 'Python 中文 "quote" $x `test`' / 'python3')
+        script = self.project / installer.ACTIONS[0][1]
+        script.write_text('printf "%s\\n" "$WATERMARK_PYTHON_BIN"\n')
+        with patch.object(installer.sys, 'executable', selected):
+            _, document = installer.workflow_documents(self.project, *installer.ACTIONS[0])
+        command = document['actions'][0]['action']['ActionParameters']['COMMAND_STRING']
+        result = subprocess.run(['/bin/zsh', '-c', command],
+                                env={**os.environ, 'WATERMARK_PYTHON_BIN': '/wrong/python'},
+                                capture_output=True, text=True, check=True)
+        self.assertEqual(result.stdout.strip(), selected)
 
-        def run(command, **kwargs):
-            return original_run(command, **kwargs, capture_output=True)
-
-        with (patch.object(installer.subprocess, 'run', side_effect=run) as calls,
-              self.assertRaises(subprocess.CalledProcessError)):
-            installer.ensure_environment(self.project)
-        self.assertEqual(calls.call_count, 1)  # Rejected before pip or service changes.
+    def test_explicit_unavailable_python_does_not_fall_back(self):
+        setup = ROOT / 'scripts/finder_setup.zsh'
+        common = ROOT / 'scripts/finder_common.zsh'
+        for source, invocation in ((setup, 'setup_finder install'),
+                                   (common, 'find_python_bin')):
+            with self.subTest(script=source.name):
+                result = subprocess.run(
+                    ['/bin/zsh', '-c', 'source "$1"; ' + invocation, 'test', str(source)],
+                    env={**os.environ, 'WATERMARK_PYTHON_BIN': '/missing/python',
+                         'PYTHON_BIN': '/missing/python', 'SCRIPT_DIR': str(ROOT)},
+                    capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(result.returncode, 1)
 
     def test_uninstall_does_not_need_image_dependencies(self):
         with (patch.object(installer.sys, 'platform', 'darwin'),

@@ -41,7 +41,8 @@ def workflow_documents(project, name, script, kind, previous=None):
     }
     if previous:
         info[PREVIOUS_KEY] = str(previous)
-    command = f'exec /bin/zsh {shlex.quote(str(project / script))} "$@"'
+    command = (f'export WATERMARK_PYTHON_BIN={shlex.quote(sys.executable)}\n'
+               f'exec /bin/zsh {shlex.quote(str(project / script))} "$@"')
     action = {
         'AMAccepts': {'Container': 'List', 'Optional': True,
                       'Types': ['com.apple.cocoa.string']},
@@ -202,24 +203,21 @@ def uninstall_workflows(services, backups):
 
 
 def ensure_environment(project):
-    """Reuse a project venv or Conda prefix; default to creating a venv."""
-    python = project / '.venv/bin/python'
-    if not python.exists():
-        if (project / '.venv').exists():
-            raise RuntimeError('项目 .venv 不完整；请将其改名备份后重新运行安装器。')
-        print('正在创建项目 Python 环境…', flush=True)
-        subprocess.run([sys.executable, '-m', 'venv', str(project / '.venv')], check=True)
-    subprocess.run([str(python), '-c',
-                    'import sys; from pathlib import Path; '
-                    'assert sys.version_info >= (3, 10), "需要 Python 3.10+"; '
-                    'assert (sys.prefix != sys.base_prefix or '
-                    '(Path(sys.prefix) / "conda-meta").is_dir()) and '
-                    'Path(sys.prefix).resolve() == Path(sys.argv[1]).resolve(), '
-                    '"项目运行环境无效，请将 .venv 改名备份后重新安装"', str(project / '.venv')],
-                   check=True)
+    """Install dependencies into the selected existing Python without creating an environment."""
+    python = sys.executable
+    if sys.version_info < (3, 10):
+        raise RuntimeError('需要 Python 3.10 或更新版本。')
+    print(f'使用 Python：{python}', flush=True)
     print('正在检查并安装依赖（首次安装需要联网）…', flush=True)
-    subprocess.run([str(python), '-m', 'pip', 'install', '--disable-pip-version-check',
-                    '-r', str(project / 'requirements.txt')], check=True)
+    try:
+        subprocess.run([python, '-m', 'pip', 'install', '--disable-pip-version-check',
+                        '-r', str(project / 'requirements.txt')], check=True)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            '依赖安装失败，尚未修改右键操作。请查看上方错误；'
+            '若提示 externally-managed-environment 或权限不足，请改用 Python 官网的 '
+            'macOS 安装包，并按 docs/usage.md 指定 Python 后重试。'
+        ) from exc
     try:
         subprocess.run([str(python), '-c',
                         'import sys; sys.path.insert(0, "src"); '
@@ -228,7 +226,7 @@ def ensure_environment(project):
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(
             '依赖验证失败，尚未修改右键操作。请查看上方错误；'
-            '请按 docs/usage.md 的环境排错说明处理后重试。'
+            '请按 docs/usage.md 的安装排错说明处理后重试。'
         ) from exc
 
 
