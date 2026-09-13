@@ -4,7 +4,7 @@
 
 为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名。支持 macOS Finder 右键快速操作和终端命令，可单张处理、批量导出或多图拼接。
 
-[下载源码](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.5.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
+[下载源码](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.6.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
 
 ## 特色：macOS 右键快速操作
 
