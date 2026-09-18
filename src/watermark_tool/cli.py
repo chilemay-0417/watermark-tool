@@ -194,6 +194,15 @@ def build_parser(defaults=None):
         "--color-mode", choices=("preserve", "srgb"), default=defaults.color_mode,
         help="preserve 保留来源色域，混合 SDR 色域使用 ProPhoto RGB；srgb 显式转换为 8 位 SDR。",
     )
+    for name, label in (
+        ("background_color", "背景"), ("watermark_color", "水印统一（文字、横线及签名）"),
+        ("line_color", "横线"), ("date_color", "日期"),
+        ("info_color", "拍摄参数及地点"), ("signature_color", "签名"),
+    ):
+        parser.add_argument(
+            "--" + name.replace("_", "-"), default=defaults._color_inputs[name],
+            help=f'{label}颜色：CSS4 名称、"rgb(40, 40, 40)" 或 "#282828"。',
+        )
     parser.add_argument(
         "--metadata", choices=("safe", "none"), default=defaults.metadata_policy,
         help="safe 保留筛选后的拍摄信息和版权（默认）；none 删除非色彩元数据。",
@@ -321,6 +330,12 @@ def config_from_args(args):
         preserve_gps=args.preserve_gps,
         jpeg_quality=args.jpeg_quality,
         png_compression=args.png_compression,
+        background_color=args.background_color,
+        watermark_color=args.watermark_color,
+        line_color=args.line_color,
+        date_color=args.date_color,
+        info_color=args.info_color,
+        signature_color=args.signature_color,
     )
 
 

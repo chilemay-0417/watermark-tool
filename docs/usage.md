@@ -1,8 +1,10 @@
 # 使用指南
 
-[返回 README](../README.md) · [签名与品牌定制](customization.md) · [更新日志](../CHANGELOG.md)
+[返回 README](../README.md) · [颜色与签名定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-当前版本：**2.2.6**。[下载本版完整工具包](https://github.com/chilemay-0417/watermark-tool/releases/download/v2.2.6/watermark-tool-2.2.6.zip) · [查看发布说明](https://github.com/chilemay-0417/watermark-tool/releases/tag/v2.2.6)
+当前版本：**2.3.0**。[下载本版源码包](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.3.0.zip) · [查看更新日志](../CHANGELOG.md)
+
+默认使用 video 版式与 01「极简瓷白」配色。其他搭配见 [颜色与签名定制](customization.md)。
 
 ## 安装与首次使用
 
@@ -30,7 +32,7 @@ macOS 15（包括 15.7.7）及更新版本的设置入口为 **系统设置 → 
 
 成片保存在原图目录，合成时使用第一张输入照片的目录。文件名以 `_watermark.jpg` 结尾，重名自动追加序号，原图保留。添加水印完成后会定位成片；批量处理中某张失败时继续处理其余照片，最后打开错误日志。
 
-默认使用贴合照片的 `adaptive` 布局。要修改布局、签名或地点显示，见 [默认设置](#修改默认设置)；临时导出 PNG 等需求见 [命令行](#命令与参数)。
+默认布局为 `video`，需要贴合照片时可改为 `adaptive`；修改项目配置后，右键和终端共用新设置。要修改布局、颜色、签名或地点显示，见 [默认设置](#修改默认设置)；临时导出 PNG 等需求见 [命令行](#命令与参数)。
 
 ## 升级、移动与卸载
 
@@ -79,7 +81,7 @@ OUTPUT_MODE = "adaptive"      # 贴合照片；video 为固定 4K；original 保
 INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 ```
 
-更换签名、文字签名和品牌 Logo 见 [定制说明](customization.md)。
+背景与水印颜色、更换签名、文字签名和品牌 Logo 的设置统一见 [定制说明](customization.md)。
 
 ## 命令与参数
 
@@ -91,12 +93,12 @@ INCLUDE_GPS_LOCATION = False  # 关闭地点联网查询
 python3 scripts/install_finder.py --cli-only
 ```
 
-进入项目目录的方法：在终端输入 `cd `（末尾有空格），将项目文件夹拖入终端，按回车。安装后可从任意目录调用；保留项目文件夹，修改其中的配置和素材仍会生效。
+进入项目目录的方法：在终端输入 `cd `（末尾有空格），将项目文件夹拖入终端，按回车。
 
 将示例中的 `photo.jpg` 换成照片路径，也可直接将照片拖入终端；路径含空格时加双引号。
 
 ```bash
-# 单张加水印，默认贴合照片
+# 单张加水印，使用当前配置
 watermark-tool photo.jpg
 
 # 多张合成为 16:9 视频素材（按输入顺序排列）
@@ -107,16 +109,21 @@ watermark-tool --batch photo1.jpg photo2.jpg
 
 # 保留照片原始尺寸，导出 PNG
 watermark-tool photo.png --output-mode original -o output.png
+
+# 临时使用深灰背景、白色水印（不改变 Logo 原色）
+watermark-tool photo.jpg --background-color "rgb(40, 40, 40)" --watermark-color white
 ```
 
 **多张输入默认合成一张；加 `--batch` 才会逐张导出。** `--batch` 不能与 `-o` 同用。
 
 自动命名的成片不会覆盖已有文件。`-o` 可指定 `.jpg`、`.jpeg` 或 `.png`，会替换同名成片，但不能覆盖输入原图；保存失败时保留已有输出。
 
-| 参数 | 用途 | 默认值 |
+| 参数 | 用途 | 当前配置值 |
 | --- | --- | --- |
-| `--output-mode` | `adaptive` 贴合照片；`video` 固定 4K；`original` 保留原尺寸 | `adaptive` |
+| `--output-mode` | `adaptive` 贴合照片；`video` 固定 4K；`original` 保留原尺寸 | `video` |
 | `--height` | 照片高度，单位为像素；不影响 original | `1850` |
+| `--background-color` | 背景颜色，支持颜色名、RGB 或十六进制 | `#F5F5F7`（配色 01） |
+| `--watermark-color` | 文字、横线和签名的统一颜色，不改变 Logo | `#1D1D1F`（配色 01） |
 | `--jpeg-quality` | JPEG 质量，1～100 | `100` |
 | `--png-compression` | PNG 无损压缩：`fast` 快、`balanced` 均衡、`small` 体积较小 | `balanced` |
 | `--include-gps-location` | 是否联网查询照片地点 | `true` |
@@ -126,13 +133,11 @@ watermark-tool photo.png --output-mode original -o output.png
 | `--show-signature` | 是否显示签名图片 | `true` |
 | `--signature-text` | 关闭签名图片后的替代文字；`""` 表示隐藏 | `哈哈哈` |
 
-以上为随附默认值，修改 `config.py` 后命令行也会使用新值。查看完整参数：
+以上按当前 `config.py` 列出，修改配置后命令行也会使用新值。查看完整参数：
 
 ```bash
 watermark-tool --help
 ```
-
-也可简写为 `watermark-tool -h`。
 
 命令安装在 `~/.local/bin/watermark-tool`，安装器会为 macOS 默认的 zsh 配置搜索路径。使用 bash、fish 等其他 shell 时，需自行将 `~/.local/bin` 加入 PATH。如果提示 `command not found`，重新打开终端；也可直接运行 `~/.local/bin/watermark-tool --help`。
 

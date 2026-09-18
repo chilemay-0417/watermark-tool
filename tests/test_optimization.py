@@ -64,13 +64,17 @@ class OptimizationTests(TestCase):
         exif[34665] = {36867: '2021:08:04 13:23:39'}
         Image.new('RGB', (100, 100), (128, 128, 128)).save(path, exif=exif)
         output = self.root / 'footer.png'
-        make_canvas([path], output, self.config(
+        config = self.config(
             line_length=900, line_left_offset=80, date_font_size=55,
-        ))
+            background_color=(12, 34, 56), watermark_color="white",
+            line_color="white", date_color="white",
+        )
+        make_canvas([path], output, config)
         with Image.open(output) as image:
             self.assertGreater(image.width, 1100)
             # The final column must remain background, not a cut-off line or glyph.
-            np.testing.assert_array_equal(np.asarray(image)[:, -1], 255)
+            expected = np.broadcast_to(config.background_color, (image.height, 3))
+            np.testing.assert_array_equal(np.asarray(image)[:, -1], expected)
 
     def test_icc_descriptive_changes_do_not_trigger_mixed_gamut_or_16bit_output(self):
         first = ImageCms.ImageCmsProfile(ImageCms.createProfile('sRGB')).tobytes()

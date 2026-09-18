@@ -1,6 +1,6 @@
 """Prepare inputs once, calculate shared geometry and dispatch to a color backend."""
 
-from dataclasses import replace
+from copy import copy
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -110,7 +110,7 @@ def print_export_summary(output_path, items, metrics, config):
 
 def make_canvas(photo_paths, output_path, config=None):
     """将照片排版到画布并导出；adaptive 不限制张数或画布宽度。"""
-    config = replace(config) if config is not None else LayoutConfig()
+    config = copy(config) if config is not None else LayoutConfig()
     photo_paths = [Path(p) for p in photo_paths]
     output_path = Path(output_path)
 

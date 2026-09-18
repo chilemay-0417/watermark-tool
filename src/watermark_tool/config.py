@@ -1,8 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
 from PIL import Image
+
+from .theme import ColorInput, parse_color
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -10,7 +12,48 @@ ASSETS_DIR = PROJECT_ROOT / "assets"
 SAMPLES_DIR = PROJECT_ROOT / "samples"
 
 # 输出模式：video 固定 4K；adaptive 固定高度、调整宽度；original 保留原尺寸。
-OUTPUT_MODE = "adaptive"
+OUTPUT_MODE = "video"
+
+# 内置配色：编号与 README 样张对应，每组依次为（背景色，水印色）。
+# 按 01–12 连续编号；logo 始终使用素材原色。
+COLOR_PRESETS = {
+    "01": ("#F5F5F7", "#1D1D1F"),  # 极简瓷白
+    "02": ("#E7E5E0", "#3A3A3C"),  # 原色钛银
+    "03": ("#F2EEE6", "#51483E"),  # 星光米白
+    "04": ("#E8EEE8", "#3C5145"),  # 鼠尾草雾
+    "05": ("#ECE0CC", "#594735"),  # 沙丘香槟
+    "06": ("#DFE2E6", "#343B45"),  # 北欧云灰
+    "07": ("#1D1D1F", "#F5F5F7"),  # 深空石墨
+    "08": ("#1B2635", "#E6EDF5"),  # 午夜深蓝
+    "09": ("#304457", "#E4ECF3"),  # 蓝钛暮色
+    "10": ("#263D34", "#E8EFE7"),  # 松针森林
+    "11": ("#383342", "#EBE6F1"),  # 紫夜烟岚
+    "12": ("#3E342F", "#EEE4D8"),  # 可可乌木
+}
+
+# 内部初始化，无需修改；确保重新加载配置时不会沿用上次选择。
+BACKGROUND_COLOR = WATERMARK_COLOR = None
+
+# 使用内置配色：修改编号即可切换，默认 "01" 为极简瓷白。
+# 例如 "09" 是蓝钛暮色；注释下一行后，下面的手动配色才会生效。
+BACKGROUND_COLOR, WATERMARK_COLOR = COLOR_PRESETS["01"]
+
+# 手动配色：先注释上面的 COLOR_PRESETS 赋值行，再修改下面两个颜色值。
+# 保留 if 条件和缩进，避免手动颜色覆盖已经选用的内置配色。
+if BACKGROUND_COLOR is None and WATERMARK_COLOR is None:
+    # 边框 / 留白颜色，适用于 video、adaptive、original。
+    # 支持 CSS4 颜色名称、"rgb(40, 40, 40)"、(40, 40, 40)、"#282828"。
+    BACKGROUND_COLOR = "black"
+
+    # 水印统一颜色：同时设置文字、横线和签名，不改变品牌 logo 的颜色。
+    # 不会随背景自动变色；深色背景可用 "white"，浅色背景可用 "black"。
+    WATERMARK_COLOR = "white"
+
+# 单项颜色；None 跟随 WATERMARK_COLOR。INFO_COLOR 同时控制拍摄参数和地点。
+LINE_COLOR = None
+DATE_COLOR = None
+INFO_COLOR = None
+SIGNATURE_COLOR = None
 
 # video 模式下的固定输出尺寸。
 CANVAS_W = 3840
@@ -121,14 +164,14 @@ class LayoutConfig:
     line_bottom_margin: int = DEFAULT_LINE_BOTTOM_MARGIN
     line_left_offset: int = DEFAULT_LINE_LEFT_OFFSET
     line_length: int = DEFAULT_LINE_LENGTH
-    background_color: RGB = (255, 255, 255)
-    line_color: RGB = (0, 0, 0)
+    background_color: ColorInput = BACKGROUND_COLOR
+    line_color: Optional[ColorInput] = LINE_COLOR
     line_width: int = 2
-    date_color: RGB = (0, 0, 0)
+    date_color: Optional[ColorInput] = DATE_COLOR
     date_font_size: int = DATE_FONT_SIZE
     date_gap_below_line: int = DATE_GAP_BELOW_LINE
     date_tracking: float = DATE_TRACKING
-    info_color: RGB = (0, 0, 0)
+    info_color: Optional[ColorInput] = INFO_COLOR
     info_font_size: int = INFO_FONT_SIZE
     info_gap_x: int = INFO_GAP_X
     location_gap_x: int = LOCATION_GAP_X
@@ -156,6 +199,21 @@ class LayoutConfig:
     info_font: Optional[Any] = None
     location_font: Optional[Any] = None
     signature_font: Optional[Any] = None
+    watermark_color: ColorInput = WATERMARK_COLOR
+    signature_color: Optional[ColorInput] = SIGNATURE_COLOR
+    _color_inputs: dict = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        # Keep None overrides so a CLI watermark color applies to all inherited items.
+        names = ("background_color", "watermark_color", "line_color", "date_color",
+                 "info_color", "signature_color")
+        self._color_inputs = {name: getattr(self, name) for name in names}
+        self.background_color = parse_color(self.background_color, "BACKGROUND_COLOR")
+        self.watermark_color = parse_color(self.watermark_color, "WATERMARK_COLOR")
+        for name in ("line_color", "date_color", "info_color", "signature_color"):
+            value = getattr(self, name)
+            setattr(self, name, self.watermark_color if value is None
+                    else parse_color(value, name.upper()))
 
 
 @dataclass

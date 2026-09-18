@@ -4,7 +4,7 @@
 
 为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名。支持 macOS Finder 右键快速操作和终端命令，可单张处理、批量导出或多图拼接。
 
-[下载源码](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.2.6.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [签名与品牌定制](docs/customization.md) · [更新日志](CHANGELOG.md)
+[下载 v2.3.0](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.3.0.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [颜色与签名定制](docs/customization.md) · [更新日志](CHANGELOG.md)
 
 ## 特色：macOS 右键快速操作
 
@@ -17,7 +17,7 @@
 | 批量加水印 | 多选 → **批量添加水印** | 每张照片分别导出 |
 
 - **自动识别**：读取拍摄参数、日期和相机品牌，匹配对应 Logo。
-- **自由定制**：更换个人签名、品牌 Logo，调整布局和文字样式。
+- **自由定制**：更换个人签名、品牌 Logo，调整布局和文字样式；支持自定义背景、文字、横线和签名颜色，详见 [颜色设置](docs/customization.md#背景与水印颜色)。
 - **保留原图**：成片保存到原图目录，重名自动编号；合成时使用第一张输入照片的目录。
 
 ## 终端命令
@@ -32,7 +32,7 @@ watermark-tool photo.jpg
 
 ## 布局与效果
 
-默认使用 `adaptive`，边框贴合照片。以下样张已压缩，仅展示排版效果，点击可查看大图。
+使用 `adaptive` 时，边框贴合照片。以下样张已压缩，仅展示排版效果，点击可查看大图。
 
 ### video：4K 视频素材
 
@@ -69,6 +69,82 @@ watermark-tool photo.jpg
 ### original：保留照片原始尺寸
 
 保留旋正后的照片原始像素尺寸，画布随内容扩展。搭配 PNG 导出可避免缩放和 JPEG 重编码，适合保留细节。
+
+### 12 组精选配色
+
+从明亮的瓷白到沉静的石墨，为不同画面搭配背景、文字、横线和签名；默认使用 01「极简瓷白」，Logo 保持原色。
+以下采用同一张照片和 video 版式，方便比较，点击样张可查看大图。选用方法见 [配色设置](docs/customization.md#背景与水印颜色)。
+
+<table>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/01-porcelain.jpg"><img src="samples/colors/01-porcelain.jpg" alt="01 极简瓷白配色样张" width="280"></a><br>
+      <strong>01 极简瓷白</strong><br>
+      适合产品、建筑与极简画面。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/02-natural-titanium.jpg"><img src="samples/colors/02-natural-titanium.jpg" alt="02 原色钛银配色样张" width="280"></a><br>
+      <strong>02 原色钛银</strong><br>
+      适合街拍、日常与自然光人像。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/03-starlight.jpg"><img src="samples/colors/03-starlight.jpg" alt="03 星光米白配色样张" width="280"></a><br>
+      <strong>03 星光米白</strong><br>
+      适合暖光人像、室内与生活记录。
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/04-sage-mist.jpg"><img src="samples/colors/04-sage-mist.jpg" alt="04 鼠尾草雾配色样张" width="280"></a><br>
+      <strong>04 鼠尾草雾</strong><br>
+      适合绿植、自然与清新日常。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/05-champagne-sand.jpg"><img src="samples/colors/05-champagne-sand.jpg" alt="05 沙丘香槟配色样张" width="280"></a><br>
+      <strong>05 沙丘香槟</strong><br>
+      适合旅行、落日与复古画面。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/06-cloud-gray.jpg"><img src="samples/colors/06-cloud-gray.jpg" alt="06 北欧云灰配色样张" width="280"></a><br>
+      <strong>06 北欧云灰</strong><br>
+      适合黑白照片、建筑与冷调街拍。
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/07-space-graphite.jpg"><img src="samples/colors/07-space-graphite.jpg" alt="07 深空石墨配色样张" width="280"></a><br>
+      <strong>07 深空石墨</strong><br>
+      适合夜景、暗调与强对比画面。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/08-midnight-blue.jpg"><img src="samples/colors/08-midnight-blue.jpg" alt="08 午夜深蓝配色样张" width="280"></a><br>
+      <strong>08 午夜深蓝</strong><br>
+      适合夜空、蓝调时刻与城市夜景。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/09-blue-titanium.jpg"><img src="samples/colors/09-blue-titanium.jpg" alt="09 蓝钛暮色配色样张" width="280"></a><br>
+      <strong>09 蓝钛暮色</strong><br>
+      适合城市、工业与科技感画面。
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/10-pine-forest.jpg"><img src="samples/colors/10-pine-forest.jpg" alt="10 松针森林配色样张" width="280"></a><br>
+      <strong>10 松针森林</strong><br>
+      适合山林、户外与胶片色调。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/11-smoky-purple.jpg"><img src="samples/colors/11-smoky-purple.jpg" alt="11 紫夜烟岚配色样张" width="280"></a><br>
+      <strong>11 紫夜烟岚</strong><br>
+      适合舞台、傍晚与带紫色的光影。
+    </td>
+    <td width="33%" align="center" valign="top">
+      <a href="samples/colors/12-cocoa-wood.jpg"><img src="samples/colors/12-cocoa-wood.jpg" alt="12 可可乌木配色样张" width="280"></a><br>
+      <strong>12 可可乌木</strong><br>
+      适合暖调人像、咖啡馆与室内静物。
+    </td>
+  </tr>
+</table>
 
 ## 使用须知
 

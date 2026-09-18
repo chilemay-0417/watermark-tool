@@ -1,0 +1,79 @@
+{
+  "version": "2.3.0",
+  "date": "2026-09-18",
+  "baseline_tag": "v2.2.6",
+  "remote_base_commit": "6fe85b03deb70db68186efa3e7f1fce3347fcd4c",
+  "environment": {
+    "platform": "macOS-14.8.9-arm64-arm-64bit-Mach-O",
+    "architecture": "arm64",
+    "python": "3.14.2",
+    "dependencies": {
+      "Pillow": "12.2.0",
+      "numpy": "2.4.0",
+      "pillow-heif": "1.3.0",
+      "pyspng": "0.1.4",
+      "pypng": "0.20220715.0"
+    }
+  },
+  "defaults": {
+    "output_mode": "video",
+    "color_preset": "01",
+    "background_color": "#F5F5F7",
+    "watermark_color": "#1D1D1F"
+  },
+  "tests": {
+    "command": "PYTHONPATH=src python -m unittest discover -v",
+    "count": 214,
+    "seconds": 19.258,
+    "result": "passed",
+    "native_automator": "temporary workflow only"
+  },
+  "checks": {
+    "ruff": "passed",
+    "shell_syntax": "passed",
+    "python_syntax_compatibility": "3.10 parsed",
+    "markdown": {
+      "preset_exports": 24,
+      "cli_cases": 4,
+      "sample_images": 12,
+      "markdown_files": 6,
+      "local_links": 91,
+      "code_blocks": 19,
+      "cli_examples": 10,
+      "python_syntax": "3.10",
+      "default_preset": "01"
+    }
+  },
+  "coverage": [
+    "All 12 presets through preserve and srgb backends; exact background and original photo samples checked",
+    "Preset selection takes priority over manual values; commenting the selection enables manual values; reload clears the old selection",
+    "Default video export, adaptive combined export, original batch export, and invalid-color output protection",
+    "Signature white-paper mask, transparent alpha, per-item overrides, cache isolation and unchanged logos",
+    "16-bit P3 preservation, metadata, layout, Finder entry points and installation/uninstallation regression tests"
+  ],
+  "wheel": {
+    "file": "watermark_tool-2.3.0-py3-none-any.whl",
+    "sha256": "2bcaa70a9ec62af848afd2c1f14b72e139f307bd93fb622734f64cff6a2d6660",
+    "bytes": 2139046,
+    "isolated_install": "passed",
+    "new_theme_module": "included",
+    "bundled_png_logos": 16,
+    "signature": "included",
+    "export": "passed"
+  },
+  "samples": {
+    "count": 12,
+    "dimensions": [
+      1600,
+      900
+    ],
+    "gallery_rows": 4,
+    "gallery_columns": 3,
+    "exif_gps_metadata": false
+  },
+  "limitations": [
+    "Full runtime suite executed on macOS 14.8.9 Apple Silicon with Python 3.14.2 only.",
+    "Python 3.10 syntax was checked, but other Python versions and Intel Macs were not rerun for this release.",
+    "Finder registration was tested in temporary directories; first-use UI on a fresh macOS account was not rechecked."
+  ]
+}

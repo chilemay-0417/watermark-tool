@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import sys
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from .asset_cache import prepared_asset
 from .color import normalize_image
@@ -88,10 +88,21 @@ def prepare_signature_mark(base_dir, config):
         if not signature_path.exists():
             raise FileNotFoundError(f"找不到签名文件：{signature_path}")
 
+        keep_original = (
+            config.background_color == (255, 255, 255)
+            and config._color_inputs["signature_color"] is None
+            and config.watermark_color == (0, 0, 0)
+        )
+
         def prepare():
             with open_image_correct_orientation(signature_path, mode="RGBA") as image:
-                return resize_by_height(image, LOGO_HEIGHT).rotate(90, expand=True)
-        signature = prepared_asset(signature_path, LOGO_HEIGHT, "signature", prepare)
+                # Retain the existing white-background appearance pixel for pixel.
+                if keep_original:
+                    return resize_by_height(image, LOGO_HEIGHT).rotate(90, expand=True)
+                with colorize_signature(image, config.signature_color) as tinted:
+                    return resize_by_height(tinted, LOGO_HEIGHT).rotate(90, expand=True)
+        kind = f"signature-v2:{keep_original}:{config.signature_color}"
+        signature = prepared_asset(signature_path, LOGO_HEIGHT, kind, prepare)
         info(f"使用签名：{signature_path.name}")
         return signature
 
@@ -112,7 +123,7 @@ def prepare_signature_mark(base_dir, config):
     signature = make_centered_text_mark_image(
         signature_text,
         config.signature_font,
-        config.info_color,
+        config.signature_color,
         config.info_tracking,
         LOGO_HEIGHT,
     )
@@ -123,6 +134,17 @@ def prepare_signature_mark(base_dir, config):
 
     info(f"使用签名替代文字：{signature_text}")
     return signature
+
+
+def colorize_signature(image, color):
+    """Recolor strokes; use existing transparency or extract dark ink on white paper."""
+    alpha = image.getchannel("A")
+    if alpha.getextrema() == (255, 255):
+        # A luminance mask retains smooth edges in the bundled black-on-white JPEG.
+        alpha = ImageOps.invert(image.convert("L"))
+    tinted = Image.new("RGBA", image.size, (*color, 255))
+    tinted.putalpha(alpha)
+    return tinted
 
 
 def load_watermark_assets(base_dir, config, logo_path=None, logo_plan=None):
