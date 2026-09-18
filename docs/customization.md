@@ -1,4 +1,4 @@
-# 背景颜色、签名与品牌定制
+# 颜色、签名与Logo定制
 
 [返回 README](../README.md) · [使用指南](usage.md)
 
