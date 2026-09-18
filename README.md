@@ -4,7 +4,7 @@
 
 为照片添加边框、拍摄参数、日期、品牌 Logo 和个人签名。支持 macOS Finder 右键快速操作和终端命令，可单张处理、批量导出或多图拼接。
 
-[下载 v2.3.0](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.3.0.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [颜色与签名定制](docs/customization.md) · [更新日志](CHANGELOG.md)
+[下载最新版](https://github.com/chilemay-0417/watermark-tool/releases/latest/download/watermark-tool.zip) · [安装指南](docs/usage.md#安装与首次使用) · [使用指南](docs/usage.md) · [颜色与签名定制](docs/customization.md) · [更新日志](CHANGELOG.md)
 
 ## 特色：macOS 右键快速操作
 
@@ -17,12 +17,12 @@
 | 批量加水印 | 多选 → **批量添加水印** | 每张照片分别导出 |
 
 - **自动识别**：读取拍摄参数、日期和相机品牌，匹配对应 Logo。
-- **自由定制**：更换个人签名、品牌 Logo，调整布局和文字样式；支持自定义背景、文字、横线和签名颜色，详见 [颜色设置](docs/customization.md#背景与水印颜色)。
+- **自由定制**：更换个人签名、品牌 Logo，调整布局和文字样式；支持自定义背景、文字、横线和签名颜色。
 - **保留原图**：成片保存到原图目录，重名自动编号；合成时使用第一张输入照片的目录。
 
 ## 终端命令
 
-完成 [安装](docs/usage.md#安装与首次使用) 并重新打开终端后，也可用一条命令加水印：
+完成安装并重新打开终端后，也可用一条命令加水印：
 
 ```bash
 watermark-tool photo.jpg
@@ -73,7 +73,7 @@ watermark-tool photo.jpg
 ### 12 组精选配色
 
 从明亮的瓷白到沉静的石墨，为不同画面搭配背景、文字、横线和签名；默认使用 01「极简瓷白」，Logo 保持原色。
-以下采用同一张照片和 video 版式，方便比较，点击样张可查看大图。选用方法见 [配色设置](docs/customization.md#背景与水印颜色)。
+以下采用同一张照片和 video 版式，方便比较，点击样张可查看大图。选用方法见 [颜色设置](docs/customization.md#背景与水印颜色)。
 
 <table>
   <tr>

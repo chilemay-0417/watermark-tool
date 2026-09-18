@@ -199,4 +199,4 @@ P3 后续测 2 次，RGBA16 测 1 次，仅为小样本检查。前后像素和�
 
 ## 发布维护
 
-未发布改动记入 CHANGELOG；发布时同步 `pyproject.toml`、更新日志、下载链接及 `vX.Y.Z` 标签。核对文档与实际行为，中文 `.command` 文件须保留可执行权限。README 保留上手入口和效果展示，开发细节放在本页。
+未发布改动记入 CHANGELOG；发布时同步 `pyproject.toml`、更新日志及 `vX.Y.Z` 标签，并为该标签创建正式 GitHub Release，上传固定命名的 `watermark-tool.zip`（从对应标签打包）。首页和使用指南统一使用 `releases/latest/download/watermark-tool.zip`；每版保持相同附件名，链接会自动指向最新正式版。只推送标签或漏传该附件都不能完成最新版下载入口的更新。核对文档与实际行为，中文 `.command` 文件须保留可执行权限。README 保留上手入口和效果展示，开发细节放在本页。

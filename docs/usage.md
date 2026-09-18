@@ -2,13 +2,13 @@
 
 [返回 README](../README.md) · [颜色与签名定制](customization.md) · [更新日志](../CHANGELOG.md)
 
-当前版本：**2.3.0**。[下载本版源码包](https://github.com/chilemay-0417/watermark-tool/archive/refs/tags/v2.3.0.zip) · [查看更新日志](../CHANGELOG.md)
+当前版本：**2.3.0**。[下载最新版](https://github.com/chilemay-0417/watermark-tool/releases/latest/download/watermark-tool.zip)
 
 默认使用 video 版式与 01「极简瓷白」配色。其他搭配见 [颜色与签名定制](customization.md)。
 
 ## 安装与首次使用
 
-1. 下载并解压完整项目，放到「图片」等固定位置。
+1. 点击「下载最新版」直接下载 `watermark-tool.zip`，解压完整项目，放到「图片」等固定位置。
 2. 双击 **[右键操作安装.command](../右键操作安装.command)**，等待安装完成。首次安装依赖需要联网；新装右键操作后会尝试打开系统设置。
 3. 首次使用时，在 Finder 选中一张照片 → 右键 → **快速操作 → 自定义（或“自定…”）**，勾选 **添加水印** 和 **批量添加水印**。如果菜单中已经有这两项，可直接使用。安装窗口按回车关闭。
 
